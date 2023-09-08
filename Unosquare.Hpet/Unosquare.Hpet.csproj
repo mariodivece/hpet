@@ -14,5 +14,21 @@
 		<AnalysisMode>AllEnabledByDefault</AnalysisMode>
 		<ImplicitUsings>enable</ImplicitUsings>
 	</PropertyGroup>
+
+	<PropertyGroup>
+		<PackageId>Unosquare.Hpet</PackageId>
+		<Version>0.01.1-alpha.1</Version>
+		<Authors>mariodivece, unosquare</Authors>
+		<Company>Unosquare</Company>
+		<Product>Unosquare HPET Emulator</Product>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<Description>A monotonic, High Precision Event Timer Emulator.</Description>
+		<Copyright>(c) 2019-2023 Unosquare, LLC</Copyright>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageTags>threading, hpet, timer, events</PackageTags>
+		<RepositoryType>git</RepositoryType>
+		<RepositoryUrl>https://github.com/mariodivece/hpet</RepositoryUrl>
+		<PackageReleaseNotes>Please review the examples in the repo for usage.</PackageReleaseNotes>
+	</PropertyGroup>
 	
 </Project>
