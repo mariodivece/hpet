@@ -9,7 +9,7 @@ internal class Program
         Console.ReadLine();
     }
 
-    private static void Timer_Ticked(object? sender, PrecisionTimerTickedEventArgs e)
+    private static void Timer_Ticked(object? sender, PrecisionTickEventArgs e)
     {
         //throw new NotImplementedException();
     }

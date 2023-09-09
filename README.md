@@ -1,2 +1,3 @@
 # hpet
-High Precision Event Timer Library
+High Precision Event Timer Emulation Library
+

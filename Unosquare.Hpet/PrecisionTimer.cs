@@ -18,7 +18,7 @@ public partial class PrecisionTimer : IDisposable
     /// <summary>
     /// Subscribe to this event to execute code when the <see cref="PrecisionTimer"/> ticks.
     /// </summary>
-    public event EventHandler<PrecisionTimerTickedEventArgs>? Ticked;
+    public event EventHandler<PrecisionTickEventArgs>? Ticked;
 
     private readonly WinMMTickSource TickSource;
     private readonly TimerTickCallback TickSourceTickHandler;

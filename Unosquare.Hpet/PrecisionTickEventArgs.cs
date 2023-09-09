@@ -3,10 +3,10 @@
 /// <summary>
 /// Represents data associated with the event arguments of a <see cref="PrecisionTimer.Ticked"/> event.
 /// </summary>
-public class PrecisionTimerTickedEventArgs : EventArgs
+public class PrecisionTickEventArgs : EventArgs
 {
     /// <summary>
-    /// Creates a new instance of the <see cref="PrecisionTimerTickedEventArgs"/>
+    /// Creates a new instance of the <see cref="PrecisionTickEventArgs"/>
     /// </summary>
     /// <param name="tickNumber"></param>
     /// <param name="missedEventCount"></param>
@@ -15,7 +15,7 @@ public class PrecisionTimerTickedEventArgs : EventArgs
     /// <param name="intevalJitter"></param>
     /// <param name="naturalElapsed"></param>
     /// <param name="discreteElapsed"></param>
-    internal PrecisionTimerTickedEventArgs(
+    internal PrecisionTickEventArgs(
         long tickNumber,
         int missedEventCount,
         TimeSpan interval,
