@@ -14,6 +14,8 @@ namespace Unosquare.Hpet;
 /// </summary>
 public class PrecisionThread : IDisposable
 {
+    private const int EventDurationsCapacity = 100;
+
     private long IsDisposed;
     private readonly Thread WorkerThread;
     private readonly Action<PrecisionTickEventArgs> UserCycleAction;
@@ -47,7 +49,8 @@ public class PrecisionThread : IDisposable
         var discreteElapsed = TimeSpan.Zero;
         var tickStartTimestamp = default(long);
         var intervalElapsed = TimeSpan.Zero;
-        var driftOffsetTicks = default(long);
+        var naturalDriftOffsetTicks = default(long);
+        var averageDriftOffsetTicks = default(long);
 
         eventState.TickNumber = 1;
         eventState.Interval = nextInterval;
@@ -59,15 +62,24 @@ public class PrecisionThread : IDisposable
             if (GetElapsedTime(tickStartTimestamp).Ticks < nextInterval.Ticks)
                 DelayHelper.Delay(TimeSpan.FromTicks(nextInterval.Ticks - GetElapsedTime(tickStartTimestamp).Ticks), TokenSource.Token);
 
-            nextInterval = TimeSpan.FromTicks(Interval.Ticks - (tickStartTimestamp != default
-                ? (GetElapsedTime(tickStartTimestamp).Ticks - nextInterval.Ticks)
-                : 0));
+            nextInterval = TimeSpan.FromTicks(Interval.Ticks - (
+                tickStartTimestamp != default
+                    ? (GetElapsedTime(tickStartTimestamp).Ticks - nextInterval.Ticks)
+                    : 0));
 
+            // start measuring the time interval which includes updating the state for the next tick event
+            // and computing event statistics for next cycle.
             ExchangeTimestamp(ref tickStartTimestamp, out intervalElapsed);
 
             // push the new state for the next cycle.
             eventState.Interval = intervalElapsed;
-            eventState.DiscreteElapsed = TimeSpan.FromTicks(eventState.DiscreteElapsed.Ticks + intervalElapsed.Ticks);
+
+            // compute drifting due to addition of discrete events not matching up.
+            // and update the elapsed time to actual natural time elapsed.
+            naturalDriftOffsetTicks = (eventState.NaturalElapsed.Ticks - eventState.DiscreteElapsed.Ticks) % Interval.Ticks;
+            eventState.Interval = TimeSpan.FromTicks(eventState.Interval.Ticks + naturalDriftOffsetTicks);
+
+            eventState.DiscreteElapsed = TimeSpan.FromTicks(eventState.DiscreteElapsed.Ticks + eventState.Interval.Ticks);
             if (eventState.TickNumber <= 1)
             {
                 naturalStartTimestamp = tickStartTimestamp;
@@ -77,18 +89,21 @@ public class PrecisionThread : IDisposable
             {
                 eventState.NaturalElapsed = GetElapsedTime(naturalStartTimestamp);
 
-                if (eventDurations.Count > 100)
+                if (eventDurations.Count >= EventDurationsCapacity)
                     _ = eventDurations.Dequeue();
 
-                eventDurations.Enqueue(intervalElapsed.Ticks);
+                eventDurations.Enqueue(eventState.Interval.Ticks);
                 eventState.IntervalAverage = TimeSpan.FromTicks(Convert.ToInt64(eventDurations.Average()));
                 eventState.IntervalJitter = TimeSpan.FromTicks(
                     Convert.ToInt64(Math.Sqrt(eventDurations.Sum(x => Math.Pow(x - Interval.Ticks, 2)) / eventDurations.Count)));
             }
 
-            // compute drifting due to addition of discrete events not matching up.
-            driftOffsetTicks = (eventState.NaturalElapsed.Ticks - eventState.DiscreteElapsed.Ticks) % Interval.Ticks;
-            nextInterval = TimeSpan.FromTicks(nextInterval.Ticks + driftOffsetTicks);
+            // compute derifting to account for average event duration            
+            if (eventDurations.Count >= EventDurationsCapacity / 2)
+            {
+                averageDriftOffsetTicks = ((Interval.Ticks - eventState.IntervalAverage.Ticks) % Interval.Ticks);
+                nextInterval = TimeSpan.FromTicks(nextInterval.Ticks + averageDriftOffsetTicks);
+            }
 
             // compute missed events.
             if (nextInterval.Ticks <= 0)
