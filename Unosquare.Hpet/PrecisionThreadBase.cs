@@ -44,7 +44,7 @@ public abstract class PrecisionThreadBase : IDisposable
         
 
         eventState.TickNumber = 1;
-        eventState.Interval = nextDelay;
+        eventState.Interval = TimeSpan.Zero;
 
         var tickStartTimestamp = Stopwatch.GetTimestamp();
         var previousTickTimestamp = default(long);
