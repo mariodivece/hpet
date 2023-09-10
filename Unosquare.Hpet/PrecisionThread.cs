@@ -24,16 +24,6 @@ public class PrecisionThread : IDisposable
         };
     }
 
-    /// <summary>
-    /// Gets or sets a value indicating whether precise timer waits are allowed to
-    /// perform context switching (yield) for other threads. The default is true,
-    /// in which case the cycle executions are not as precise -- or have more 'jitter' --
-    /// but the CPU usage is greatly reduced. If set to false, the jitter is reduced
-    /// substantially but the CPU usage is increased. It is recommended that you set this
-    /// to false only when very precise monotonic cycles are required.
-    /// </summary>
-    public bool AllowContextSwitching { get; set; } = true;
-
     public void Start() => WorkerThread.Start();
 
     public string? Name
@@ -71,7 +61,6 @@ public class PrecisionThread : IDisposable
             {
                 DelayProvider.Delay(
                     TimeSpan.FromTicks(nextDelay.Ticks - GetElapsedTime(tickStartTimestamp).Ticks),
-                    AllowContextSwitching,
                     TokenSource.Token);
             }
 

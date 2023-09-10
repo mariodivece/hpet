@@ -6,7 +6,7 @@ using Unosquare.Hpet.WinMM;
 
 namespace Unosquare.Hpet;
 
-internal sealed class DelayProvider
+internal sealed class DelayProvider : IDisposable
 {
     private static readonly long StopwatchTicksPerMillisecond = Convert.ToInt64(Stopwatch.Frequency / 1000d);
 
@@ -14,27 +14,30 @@ internal sealed class DelayProvider
     private readonly TimeSpan TimerThresholdDelay;
     private readonly WinMMTimerCallback TimerCallback;
     private readonly long StartTimestamp;
-    private readonly bool AllowContextSwitching;
+    private readonly ManualResetEventSlim TimerDoneEvent;
 
-    private long IsWaiting;
     private uint UserConext;
     private volatile uint TimerId;
+    private long IsDisposed;
 
-    private DelayProvider(TimeSpan delay, bool allowContextSwitching)
+    private DelayProvider(long startTimestamp, TimeSpan delay)
     {
-        StartTimestamp = Stopwatch.GetTimestamp();
-        AllowContextSwitching = allowContextSwitching;
-        Interlocked.Increment(ref IsWaiting);
+        StartTimestamp = startTimestamp;
+        TimerDoneEvent = new(false);
         RequestedDelay = delay;
         TimerThresholdDelay = TimeSpan.FromTicks(RequestedDelay.Ticks - StopwatchTicksPerMillisecond);
         TimerCallback = new(HandleTimerCallback);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Delay(TimeSpan delay, bool allowContextSwitching, CancellationToken ct) =>
-        new DelayProvider(delay, allowContextSwitching).Wait(ct);
+    public static void Delay(TimeSpan delay, CancellationToken ct)
+    {
+        var startTimestamp = Stopwatch.GetTimestamp();
+        using var p = new DelayProvider(startTimestamp, delay);
+        p.Wait(ct);
+    }
 
-    public void Wait(CancellationToken ct = default)
+    private void Wait(CancellationToken ct = default)
     {
         HandleTimerCallback(TimerId, default, ref UserConext, default, default);
         WaitForTimerSignalDone(ct);
@@ -43,20 +46,16 @@ internal sealed class DelayProvider
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void SignalTimerDone()
     {
-        Interlocked.Decrement(ref IsWaiting);
+        TimerDoneEvent.Set();
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void WaitForTimerSignalDone(CancellationToken ct)
     {
-        SpinWait spinner = default;
-        while (Interlocked.Read(ref IsWaiting) > 0 || Stopwatch.GetElapsedTime(StartTimestamp).Ticks < RequestedDelay.Ticks)
+        while (!TimerDoneEvent.Wait(1, ct))
         {
             if (ct.IsCancellationRequested)
                 break;
-
-            if (!spinner.NextSpinWillYield || AllowContextSwitching)
-                spinner.SpinOnce();
         }
     }
 
@@ -83,6 +82,27 @@ internal sealed class DelayProvider
             SignalTimerDone();
             throw new Win32Exception(Marshal.GetLastWin32Error(), "Unable to create multimedia timer reference.");
         }
+    }
+
+    private void Dispose(bool alsoManaged)
+    {
+        if (Interlocked.Increment(ref IsDisposed) > 1)
+            return;
+
+        if (alsoManaged)
+        {
+            TimerDoneEvent.Dispose();
+        }
+
+        // TODO: free unmanaged resources (unmanaged objects) and override finalizer
+        // TODO: set large fields to null
+    }
+
+    public void Dispose()
+    {
+        // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+        Dispose(alsoManaged: true);
+        GC.SuppressFinalize(this);
     }
 }
 

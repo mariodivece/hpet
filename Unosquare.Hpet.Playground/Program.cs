@@ -7,7 +7,7 @@ internal class Program
     static void Main(string[] args)
     {
         var startTimestamp = Stopwatch.GetTimestamp();
-        var interval = TimeSpan.FromMilliseconds(200);
+        var interval = TimeSpan.FromMilliseconds(10);
         var totalSkipped = 0;
         var timer = new PrecisionThread((s) =>
         {
@@ -30,12 +30,9 @@ internal class Program
                 """);
 
             startTimestamp = Stopwatch.GetTimestamp();
-            
+
             //Thread.Sleep(1);
-        }, interval)
-        {
-            AllowContextSwitching = true
-        };
+        }, interval);
 
         timer.Start();
         Console.ReadKey(true);
