@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
+﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Unosquare.Hpet;
 
@@ -14,8 +9,6 @@ namespace Unosquare.Hpet;
 /// </summary>
 public class PrecisionThread : IDisposable
 {
-    private const int EventDurationsCapacity = 100;
-
     private long IsDisposed;
     private readonly Thread WorkerThread;
     private readonly Action<PrecisionTickEventArgs> UserCycleAction;
@@ -41,75 +34,93 @@ public class PrecisionThread : IDisposable
 
     private void WorkerThreadLoop()
     {
-        var eventDurations = new Queue<long>(128);
+        const int IntervalSampleThreshold = 10;
+
+        var eventDurationsCapacity = Convert.ToInt32(Math.Max(IntervalSampleThreshold, 1d / Interval.TotalSeconds));
+        var eventDurations = new Queue<long>(eventDurationsCapacity);
 
         var eventState = new PrecisionTickEventArgs();
-        var nextInterval = Interval;
+        var nextDelay = Interval;
         var naturalStartTimestamp = default(long);
+        var systemStartMillisecond = default(long);
+
         var discreteElapsed = TimeSpan.Zero;
+        
         var tickStartTimestamp = default(long);
         var intervalElapsed = TimeSpan.Zero;
-        var naturalDriftOffsetTicks = default(long);
-        var averageDriftOffsetTicks = default(long);
+        var naturalDriftOffset = TimeSpan.Zero;
+        var averageDriftOffset = TimeSpan.Zero;
 
         eventState.TickNumber = 1;
-        eventState.Interval = nextInterval;
+        eventState.Interval = nextDelay;
 
         while (Interlocked.Read(ref IsDisposed) <= 0)
         {
+            // Invoke the user action with the current state
             UserCycleAction?.Invoke(eventState.Clone());
 
-            if (GetElapsedTime(tickStartTimestamp).Ticks < nextInterval.Ticks)
-                DelayHelper.Delay(TimeSpan.FromTicks(nextInterval.Ticks - GetElapsedTime(tickStartTimestamp).Ticks), TokenSource.Token);
-
-            nextInterval = TimeSpan.FromTicks(Interval.Ticks - (
-                tickStartTimestamp != default
-                    ? (GetElapsedTime(tickStartTimestamp).Ticks - nextInterval.Ticks)
-                    : 0));
+            // Introduce a delay
+            if (GetElapsedTime(tickStartTimestamp).Ticks < nextDelay.Ticks)
+                DelayHelper.Delay(TimeSpan.FromTicks(nextDelay.Ticks - GetElapsedTime(tickStartTimestamp).Ticks), TokenSource.Token);
 
             // start measuring the time interval which includes updating the state for the next tick event
             // and computing event statistics for next cycle.
             ExchangeTimestamp(ref tickStartTimestamp, out intervalElapsed);
 
-            // push the new state for the next cycle.
-            eventState.Interval = intervalElapsed;
+            // Compute an initial estimated delay for the next cycle
+            nextDelay = TimeSpan.FromTicks(Interval.Ticks - (intervalElapsed.Ticks - nextDelay.Ticks));
 
-            // compute drifting due to addition of discrete events not matching up.
-            // and update the elapsed time to actual natural time elapsed.
-            naturalDriftOffsetTicks = (eventState.NaturalElapsed.Ticks - eventState.DiscreteElapsed.Ticks) % Interval.Ticks;
-            eventState.Interval = TimeSpan.FromTicks(eventState.Interval.Ticks + naturalDriftOffsetTicks);
+            // compute actual interval elapsed time taking into account drifting due to addition of
+            // discrete events not adding up to the natural time elapsed
+            naturalDriftOffset = TimeSpan.FromTicks((eventState.NaturalElapsed.Ticks - eventState.DiscreteElapsed.Ticks) % Interval.Ticks);
+            eventState.Interval = TimeSpan.FromTicks(intervalElapsed.Ticks + naturalDriftOffset.Ticks);
 
+            // Add the interval elapsed to the discrete elapsed
             eventState.DiscreteElapsed = TimeSpan.FromTicks(eventState.DiscreteElapsed.Ticks + eventState.Interval.Ticks);
+
             if (eventState.TickNumber <= 1)
             {
+                // on the first tick, start counting the natural time elapsed
                 naturalStartTimestamp = tickStartTimestamp;
+                systemStartMillisecond = Environment.TickCount64;
                 eventState.NaturalElapsed = eventState.DiscreteElapsed;
             }
             else
             {
+                // Update the natural elapsed time
                 eventState.NaturalElapsed = GetElapsedTime(naturalStartTimestamp);
 
-                if (eventDurations.Count >= EventDurationsCapacity)
+                var systemElapsed = TimeSpan.FromTicks(TimeSpan.TicksPerMillisecond * (Environment.TickCount64 - systemStartMillisecond));
+                Console.CursorTop = 16;
+                Console.WriteLine(TimeSpan.FromTicks(eventState.NaturalElapsed.Ticks - systemElapsed.Ticks).TotalMilliseconds);
+
+                if (eventDurations.Count >= eventDurationsCapacity)
                     _ = eventDurations.Dequeue();
 
+                // Push a sample tot he analysis set.
                 eventDurations.Enqueue(eventState.Interval.Ticks);
-                eventState.IntervalAverage = TimeSpan.FromTicks(Convert.ToInt64(eventDurations.Average()));
+
+                // Compute the average.
+                eventState.IntervalAverage = TimeSpan.FromTicks(
+                    Convert.ToInt64(eventDurations.Average()));
+
+                // Jitter is the standard deviation.
                 eventState.IntervalJitter = TimeSpan.FromTicks(
                     Convert.ToInt64(Math.Sqrt(eventDurations.Sum(x => Math.Pow(x - Interval.Ticks, 2)) / eventDurations.Count)));
             }
 
-            // compute derifting to account for average event duration            
-            if (eventDurations.Count >= EventDurationsCapacity / 2)
+            // compute drifting to account for average event duration
+            if (eventDurations.Count >= IntervalSampleThreshold)
             {
-                averageDriftOffsetTicks = ((Interval.Ticks - eventState.IntervalAverage.Ticks) % Interval.Ticks);
-                nextInterval = TimeSpan.FromTicks(nextInterval.Ticks + averageDriftOffsetTicks);
+                averageDriftOffset = TimeSpan.FromTicks(eventState.IntervalAverage.Ticks - Interval.Ticks);
+                nextDelay = TimeSpan.FromTicks(nextDelay.Ticks - averageDriftOffset.Ticks);
             }
-
+            
             // compute missed events.
-            if (nextInterval.Ticks <= 0)
+            if (nextDelay.Ticks <= 0)
             {
-                eventState.MissedEventCount = 1 + Convert.ToInt32(-nextInterval.Ticks / Interval.Ticks);
-                nextInterval = TimeSpan.FromTicks(-nextInterval.Ticks % Interval.Ticks);
+                eventState.MissedEventCount = 1 + Convert.ToInt32(-nextDelay.Ticks / Interval.Ticks);
+                nextDelay = TimeSpan.FromTicks(-nextDelay.Ticks % Interval.Ticks);
             }
             else
             {

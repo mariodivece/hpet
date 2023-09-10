@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿using System.ComponentModel;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Unosquare.Hpet.WinMM;
 
 namespace Unosquare.Hpet;
@@ -55,6 +57,9 @@ internal static class DelayHelper
                 handler!,
                 ref userContext,
                 Constants.EventTypeSingle);
+
+            if (timerId <= 0)
+                throw new Win32Exception(Marshal.GetLastWin32Error());
         });
 
         handler.Invoke(default, default, ref userContext, default, default);

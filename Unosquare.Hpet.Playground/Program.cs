@@ -7,7 +7,7 @@ internal class Program
     static void Main(string[] args)
     {
         var startTimestamp = Stopwatch.GetTimestamp();
-        var interval = TimeSpan.FromMilliseconds(Math.PI);
+        var interval = TimeSpan.FromMilliseconds(10);
         var totalSkipped = 0;
         var timer = new PrecisionThread((s) =>
         {
