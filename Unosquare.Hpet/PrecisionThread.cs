@@ -38,6 +38,7 @@ public class PrecisionThread : IDisposable
 
         var eventDurationsCapacity = Convert.ToInt32(Math.Max(IntervalSampleThreshold, 1d / Interval.TotalSeconds));
         var eventDurations = new Queue<long>(eventDurationsCapacity);
+        var systemDriftSamples = new Queue<TimeSpan>(eventDurationsCapacity);
 
         var eventState = new PrecisionTickEventArgs();
         var nextDelay = Interval;
@@ -91,8 +92,14 @@ public class PrecisionThread : IDisposable
                 eventState.NaturalElapsed = GetElapsedTime(naturalStartTimestamp);
 
                 var systemElapsed = TimeSpan.FromTicks(TimeSpan.TicksPerMillisecond * (Environment.TickCount64 - systemStartMillisecond));
+                var systemDriftSample = TimeSpan.FromTicks(eventState.NaturalElapsed.Ticks - systemElapsed.Ticks);
+                systemDriftSamples.Enqueue(systemDriftSample);
+
+                if (systemDriftSamples.Count > eventDurationsCapacity)
+                    _ = systemDriftSamples.Dequeue();
+
                 Console.CursorTop = 16;
-                Console.WriteLine(TimeSpan.FromTicks(eventState.NaturalElapsed.Ticks - systemElapsed.Ticks).TotalMilliseconds);
+                Console.WriteLine($"{systemDriftSamples.Average(c => c.TotalMilliseconds),16:N4} ms");
 
                 if (eventDurations.Count >= eventDurationsCapacity)
                     _ = eventDurations.Dequeue();

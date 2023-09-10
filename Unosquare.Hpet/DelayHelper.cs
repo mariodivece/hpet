@@ -1,4 +1,5 @@
-﻿using System.ComponentModel;
+﻿using Microsoft.Win32.SafeHandles;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Unosquare.Hpet.WinMM;
@@ -23,10 +24,11 @@ internal static class DelayHelper
         if (delay.Ticks <= 0)
             return Stopwatch.GetElapsedTime(startTimestamp);
 
-        using var mre = new ManualResetEventSlim(false);
+        var mre = new ManualResetEvent(false);
         uint userContext = default;
-        WinMMTimerCallback? handler = null;
 
+        // setup a callback for the timer
+        WinMMTimerCallback? handler = null;
         handler = new WinMMTimerCallback((uint id, uint msg, ref uint userCtx, uint rsv1, uint rsv2) =>
         {
             if (Stopwatch.GetElapsedTime(startTimestamp) >= delay || ct.IsCancellationRequested)
@@ -59,11 +61,22 @@ internal static class DelayHelper
                 Constants.EventTypeSingle);
 
             if (timerId <= 0)
+            {
+                mre.Set();
                 throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+
         });
 
+
         handler.Invoke(default, default, ref userContext, default, default);
-        mre.Wait(delay, ct);
+        mre.WaitOne(); // delay, false);
+
+        GC.KeepAlive(mre);
+        GC.KeepAlive(handler);
+        mre.Dispose();
+
+
         return Stopwatch.GetElapsedTime(startTimestamp);
     }
 
