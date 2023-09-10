@@ -62,7 +62,7 @@ public class PrecisionThread : IDisposable
 
             // Introduce a delay
             if (GetElapsedTime(tickStartTimestamp).Ticks < nextDelay.Ticks)
-                DelayHelper.Delay(TimeSpan.FromTicks(nextDelay.Ticks - GetElapsedTime(tickStartTimestamp).Ticks), TokenSource.Token);
+                new DelayProvider(TimeSpan.FromTicks(nextDelay.Ticks - GetElapsedTime(tickStartTimestamp).Ticks)).Wait(TokenSource.Token);
 
             // start measuring the time interval which includes updating the state for the next tick event
             // and computing event statistics for next cycle.
