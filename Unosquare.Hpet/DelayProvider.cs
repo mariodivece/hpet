@@ -2,16 +2,16 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Xml;
 using Unosquare.Hpet.WinMM;
 
 namespace Unosquare.Hpet;
 
 public sealed class DelayProvider : IDisposable
 {
-    private static readonly long StopwatchTicksPerMillisecond = Convert.ToInt64(Stopwatch.Frequency / 1000d);
+    private static readonly long TightLoopThresholdTicks = Convert.ToInt64(TimeSpan.TicksPerMillisecond * 1.5);
 
     private readonly TimeSpan RequestedDelay;
-    private readonly TimeSpan TimerThresholdDelay;
     private readonly WinMMTimerCallback TimerCallback;
     private readonly long StartTimestamp;
     private readonly ManualResetEventSlim TimerDoneEvent;
@@ -25,7 +25,6 @@ public sealed class DelayProvider : IDisposable
         StartTimestamp = startTimestamp;
         TimerDoneEvent = new(false);
         RequestedDelay = delay;
-        TimerThresholdDelay = TimeSpan.FromTicks(RequestedDelay.Ticks - StopwatchTicksPerMillisecond);
         TimerCallback = new(HandleTimerCallback);
     }
 
@@ -61,9 +60,24 @@ public sealed class DelayProvider : IDisposable
 
     private void HandleTimerCallback(uint id, uint msg, ref uint userCtx, uint rsv1, uint rsv2)
     {
-        // Check if the time was elapsed or close (sub-millisecond wait needed) to elapsed
-        if (Stopwatch.GetElapsedTime(StartTimestamp).Ticks >= TimerThresholdDelay.Ticks)
+        // Check if the time has elpased already.
+        if (Stopwatch.GetElapsedTime(StartTimestamp).Ticks >= RequestedDelay.Ticks)
         {
+            SignalTimerDone();
+            return;
+        }
+
+        // Tight loop for sub-millisecond delay
+        if (RequestedDelay.Ticks - Stopwatch.GetElapsedTime(StartTimestamp).Ticks <= TightLoopThresholdTicks)
+        {
+            var spinner = default(SpinWait);
+
+            while (Stopwatch.GetElapsedTime(StartTimestamp).Ticks < RequestedDelay.Ticks)
+            {
+                if (!spinner.NextSpinWillYield)
+                    spinner.SpinOnce();
+            }
+
             SignalTimerDone();
             return;
         }
