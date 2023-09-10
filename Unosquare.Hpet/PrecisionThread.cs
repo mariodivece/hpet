@@ -24,6 +24,16 @@ public class PrecisionThread : IDisposable
         };
     }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether precise timer waits are allowed to
+    /// perform context switching (yield) for other threads. The default is true,
+    /// in which case the cycle executions are not as precise -- or have more 'jitter' --
+    /// but the CPU usage is greatly reduced. If set to false, the jitter is reduced
+    /// substantially but the CPU usage is increased. It is recommended that you set this
+    /// to false only when very precise monotonic cycles are required.
+    /// </summary>
+    public bool AllowContextSwitching { get; set; } = true;
+
     public void Start() => WorkerThread.Start();
 
     public string? Name
@@ -38,15 +48,11 @@ public class PrecisionThread : IDisposable
 
         var eventDurationsCapacity = Convert.ToInt32(Math.Max(IntervalSampleThreshold, 1d / Interval.TotalSeconds));
         var eventDurations = new Queue<long>(eventDurationsCapacity);
-        var systemDriftSamples = new Queue<TimeSpan>(eventDurationsCapacity);
 
         var eventState = new PrecisionTickEventArgs();
         var nextDelay = Interval;
         var naturalStartTimestamp = default(long);
-        var systemStartMillisecond = default(long);
-
         var discreteElapsed = TimeSpan.Zero;
-        
         var tickStartTimestamp = default(long);
         var intervalElapsed = TimeSpan.Zero;
         var naturalDriftOffset = TimeSpan.Zero;
@@ -62,7 +68,12 @@ public class PrecisionThread : IDisposable
 
             // Introduce a delay
             if (GetElapsedTime(tickStartTimestamp).Ticks < nextDelay.Ticks)
-                new DelayProvider(TimeSpan.FromTicks(nextDelay.Ticks - GetElapsedTime(tickStartTimestamp).Ticks)).Wait(TokenSource.Token);
+            {
+                DelayProvider.Delay(
+                    TimeSpan.FromTicks(nextDelay.Ticks - GetElapsedTime(tickStartTimestamp).Ticks),
+                    AllowContextSwitching,
+                    TokenSource.Token);
+            }
 
             // start measuring the time interval which includes updating the state for the next tick event
             // and computing event statistics for next cycle.
@@ -83,7 +94,6 @@ public class PrecisionThread : IDisposable
             {
                 // on the first tick, start counting the natural time elapsed
                 naturalStartTimestamp = tickStartTimestamp;
-                systemStartMillisecond = Environment.TickCount64;
                 eventState.NaturalElapsed = eventState.DiscreteElapsed;
             }
             else
@@ -91,16 +101,7 @@ public class PrecisionThread : IDisposable
                 // Update the natural elapsed time
                 eventState.NaturalElapsed = GetElapsedTime(naturalStartTimestamp);
 
-                var systemElapsed = TimeSpan.FromTicks(TimeSpan.TicksPerMillisecond * (Environment.TickCount64 - systemStartMillisecond));
-                var systemDriftSample = TimeSpan.FromTicks(eventState.NaturalElapsed.Ticks - systemElapsed.Ticks);
-                systemDriftSamples.Enqueue(systemDriftSample);
-
-                if (systemDriftSamples.Count > eventDurationsCapacity)
-                    _ = systemDriftSamples.Dequeue();
-
-                Console.CursorTop = 16;
-                Console.WriteLine($"{systemDriftSamples.Average(c => c.TotalMilliseconds),16:N4} ms");
-
+                // Limit the amount of samples.
                 if (eventDurations.Count >= eventDurationsCapacity)
                     _ = eventDurations.Dequeue();
 
