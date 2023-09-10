@@ -7,26 +7,26 @@ internal class Program
     static void Main(string[] args)
     {
         var startTimestamp = Stopwatch.GetTimestamp();
-        var interval = TimeSpan.FromMilliseconds(10);
+        var interval = TimeSpan.FromMilliseconds(5);
         var totalSkipped = 0;
-        var timer = new PrecisionThread((s) =>
+        var precisionThread = new PrecisionThread((e) =>
         {
             Console.CursorLeft = 0;
             Console.CursorTop = 0;
 
-            totalSkipped += s.MissedEventCount;
+            totalSkipped += e.MissedEventCount;
 
             Console.WriteLine($"""
                 Period:       {interval.TotalMilliseconds,16:N4} ms.
-                Number:       {s.TickNumber,16}
+                Number:       {e.TickNumber,16}
                 Ext. Elapsed: {Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds,16:N4}
-                Elapsed:      {s.Interval.TotalMilliseconds,16:N4} ms.
-                Average:      {s.IntervalAverage.TotalMilliseconds,16:N4} ms.
-                Jitter:       {s.IntervalJitter.TotalMilliseconds,16:N4} ms.
-                Skipped:      {s.MissedEventCount,16} cycles
+                Elapsed:      {e.Interval.TotalMilliseconds,16:N4} ms.
+                Average:      {e.IntervalAverage.TotalMilliseconds,16:N4} ms.
+                Jitter:       {e.IntervalJitter.TotalMilliseconds,16:N4} ms.
+                Skipped:      {e.MissedEventCount,16} cycles
                 Total Skip:   {totalSkipped,16} cycles
-                Discrete:     {s.DiscreteElapsed.TotalMilliseconds,16:N4} ms.
-                Natural:      {s.NaturalElapsed.TotalMilliseconds,16:N4} ms.
+                Discrete:     {e.DiscreteElapsed.TotalMilliseconds,16:N4} ms.
+                Natural:      {e.NaturalElapsed.TotalMilliseconds,16:N4} ms.
                 """);
 
             startTimestamp = Stopwatch.GetTimestamp();
@@ -34,7 +34,28 @@ internal class Program
             //Thread.Sleep(1);
         }, interval);
 
-        timer.Start();
+        var precisionTimer = new PrecisionTimer(interval);
+        precisionTimer.Ticked += (s, e) =>
+        {
+            Console.CursorLeft = 0;
+            Console.CursorTop = 16;
+
+            Console.WriteLine($"""
+                Period:       {interval.TotalMilliseconds,16:N4} ms.
+                Number:       {e.TickNumber,16}
+                Elapsed:      {e.Interval.TotalMilliseconds,16:N4} ms.
+                Average:      {e.IntervalAverage.TotalMilliseconds,16:N4} ms.
+                Jitter:       {e.IntervalJitter.TotalMilliseconds,16:N4} ms.
+                Skipped:      {e.MissedEventCount,16} cycles
+                Discrete:     {e.DiscreteElapsed.TotalMilliseconds,16:N4} ms.
+                Natural:      {e.NaturalElapsed.TotalMilliseconds,16:N4} ms.
+                """);
+        };
+
+        //precisionTimer.Start();
+        precisionThread.Start();
+        Console.ReadKey(true);
+        precisionThread.Dispose();
         Console.ReadKey(true);
     }
 

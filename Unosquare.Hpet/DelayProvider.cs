@@ -6,7 +6,7 @@ using Unosquare.Hpet.WinMM;
 
 namespace Unosquare.Hpet;
 
-internal sealed class DelayProvider : IDisposable
+public sealed class DelayProvider : IDisposable
 {
     private static readonly long StopwatchTicksPerMillisecond = Convert.ToInt64(Stopwatch.Frequency / 1000d);
 
@@ -52,7 +52,7 @@ internal sealed class DelayProvider : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void WaitForTimerSignalDone(CancellationToken ct)
     {
-        while (!TimerDoneEvent.Wait(1, ct))
+        while (!TimerDoneEvent.Wait(1, CancellationToken.None))
         {
             if (ct.IsCancellationRequested)
                 break;
@@ -88,6 +88,8 @@ internal sealed class DelayProvider : IDisposable
     {
         if (Interlocked.Increment(ref IsDisposed) > 1)
             return;
+
+        TimerDoneEvent.Set();
 
         if (alsoManaged)
         {
