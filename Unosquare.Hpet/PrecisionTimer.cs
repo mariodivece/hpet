@@ -24,7 +24,7 @@ public partial class PrecisionTimer : PrecisionThreadBase
     }
 
     /// <inheritdoc />
-    protected override void OnWorkerCycle(PrecisionTickEventArgs tickEvent)
+    protected override void RunWorkerCycle(PrecisionTickEventArgs tickEvent)
     {
         Ticked?.Invoke(this, tickEvent);
     }

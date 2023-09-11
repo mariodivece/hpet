@@ -19,13 +19,13 @@ public sealed class DelayProvider
     private readonly TimeSpan RequestedDelay;
     private readonly WinMMTimerCallback TimerCallback;
     private readonly long StartTimestamp;
+    private readonly DelayPrecision PrecisionOption;
 
     private uint UserConext;
     private volatile uint TimerId;
     private object? EventSignal;
     private CancellationToken TimerCancellationToken = CancellationToken.None;
-    private DelayPrecision PrecisionOption;
-
+    
     /// <summary>
     /// Initializes static fields for the <see cref="DelayProvider"/> utility class.
     /// </summary>

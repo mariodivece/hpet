@@ -6,7 +6,7 @@ internal class Program
 {
     static void Main(string[] args)
     {
-        RunPrecisionThreadSample(10);
+        RunPrecisionThreadSample(100);
         //RunAsyncDelaySample();
     }
 

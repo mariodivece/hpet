@@ -13,7 +13,7 @@ public class PrecisionThread : PrecisionThreadBase
     }
 
     /// <inheridoc />
-    protected override void OnWorkerCycle(PrecisionTickEventArgs tickEvent)
+    protected override void RunWorkerCycle(PrecisionTickEventArgs tickEvent)
     {
         CycleAction.Invoke(tickEvent);
     }
