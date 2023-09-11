@@ -71,7 +71,7 @@ public sealed class DelayProvider
 
         // Create a TCS referencing the delay provider so that
         // it does not go out of scope while the task is running.
-        var tcs = new TaskCompletionSource(p, TaskCreationOptions.PreferFairness);
+        var tcs = new TaskCompletionSource(p);
 
         // Set the event signal to be the TCS
         p.EventSignal = tcs;

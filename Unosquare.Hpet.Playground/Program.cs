@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Linq.Expressions;
 
 namespace Unosquare.Hpet.Playground;
 
@@ -6,7 +7,13 @@ internal class Program
 {
     static void Main(string[] args)
     {
-        RunPrecisionTimerSample(10);
+        //RunPrecisionTimerSample(10);
+
+        var cts = new CancellationTokenSource();
+        RunAsyncDelaySample(cts.Token);
+        Console.ReadKey();
+        cts.Cancel();
+
         Console.WriteLine("Press any key to continue.");
         Console.ReadKey(true);
     }
@@ -24,6 +31,23 @@ internal class Program
         Console.ReadKey(true);
         precisionThread.Dispose();
         Console.WriteLine("Disposed!");
+    }
+
+    private static async Task RunAsyncDelaySample(CancellationToken ct)
+    {
+        var interval = CreateIntervalMillis(100);
+        long tickNumber = 0;
+        Stopwatch sw = Stopwatch.StartNew();
+
+        while (!ct.IsCancellationRequested)
+        {
+            sw.Restart();
+            tickNumber++;
+            await DelayProvider.DelayAsync(interval, ct).ConfigureAwait(false);
+            Console.WriteLine($"Ticked {tickNumber,10} SW: {sw.ElapsedMilliseconds,16:N4}");
+        }
+
+        Console.WriteLine("Finished!");
     }
 
     private static void PrintEventToConcolse(PrecisionTickEventArgs e)

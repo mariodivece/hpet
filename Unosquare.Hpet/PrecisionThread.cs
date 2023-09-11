@@ -29,9 +29,5 @@ public class PrecisionThread : PrecisionThreadBase
         WorkerExitTaskSource.TrySetResult();
     }
 
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <returns></returns>
     public Task WaitForFinishedAsync() => WorkerExitTaskSource.Task;
 }
