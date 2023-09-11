@@ -14,9 +14,8 @@ namespace Unosquare.Hpet;
 public abstract class PrecisionThreadBase : IDisposable
 {
     private long m_IsDisposed;
-    private readonly CancellationTokenSource TokenSource = new();
+    private WeakReference<CancellationTokenSource>? TokenSourceReference;
     private readonly object SyncLock = new();
-    private readonly DelayPrecision PrecisionOption;
 
     /// <summary>
     /// Creates a new instance of the <see cref="PrecisionThreadBase"/> class.
@@ -39,9 +38,15 @@ public abstract class PrecisionThreadBase : IDisposable
     public TimeSpan Interval { get; }
 
     /// <summary>
-    /// Gets a value indicating whether the <see cref="Dispose()"/> method has been called.
+    /// Gets the delay precision strategy to employ.
     /// </summary>
-    protected bool IsDisposed => Interlocked.Read(ref m_IsDisposed) > 0;
+    protected DelayPrecision PrecisionOption { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the <see cref="Dispose()"/> method has been called
+    /// and the running loop is about to exit or already has.
+    /// </summary>
+    protected bool IsDisposeRequested => Interlocked.Read(ref m_IsDisposed) > 0;
 
     /// <summary>
     /// Provides access to the underlying background thread.
@@ -54,7 +59,7 @@ public abstract class PrecisionThreadBase : IDisposable
     /// <exception cref="ObjectDisposedException">Thrown when <see cref="Dispose()"/> has been called before.</exception>
     public virtual void Start()
     {
-        if (IsDisposed)
+        if (IsDisposeRequested)
             throw new ObjectDisposedException(nameof(PrecisionThreadBase));
 
         WorkerThread.Start();
@@ -97,9 +102,11 @@ public abstract class PrecisionThreadBase : IDisposable
     {
         const int IntervalSampleThreshold = 10;
 
+        // Compute event duration sample count and instantiate the queue.
         var eventDurationsCapacity = Convert.ToInt32(Math.Max(IntervalSampleThreshold, 1d / Interval.TotalSeconds));
         var eventDurations = new Queue<long>(eventDurationsCapacity);
 
+        // Setup state and looping variables.
         var eventState = new PrecisionTickEventArgs(interval: Interval);
         var nextDelay = Interval;
         var naturalStartTimestamp = default(long);
@@ -111,12 +118,17 @@ public abstract class PrecisionThreadBase : IDisposable
         eventState.TickEventNumber = 1;
         eventState.IntervalElapsed = TimeSpan.Zero;
 
-        var tickStartTimestamp = Stopwatch.GetTimestamp();
-        var previousTickTimestamp = default(long);
-
         Exception? exitException = null;
 
-        while (!IsDisposed)
+        // Cature a reference to the CTS so that it can be signalled
+        // from a different method.
+        using var tokenSource = new CancellationTokenSource();
+        TokenSourceReference = new(tokenSource);
+
+        var previousTickTimestamp = default(long);
+        var tickStartTimestamp = Stopwatch.GetTimestamp();
+
+        while (!IsDisposeRequested)
         {
             // Invoke the user action with the current state
             try
@@ -134,16 +146,13 @@ public abstract class PrecisionThreadBase : IDisposable
             }
 
             // Capture the cancellation token with thread safety
-            lock (SyncLock)
+            // Introduce a delay
+            if (GetElapsedTime(tickStartTimestamp).Ticks < nextDelay.Ticks)
             {
-                // Introduce a delay
-                if (GetElapsedTime(tickStartTimestamp).Ticks < nextDelay.Ticks)
-                {
-                    DelayProvider.Delay(
-                        TimeSpan.FromTicks(nextDelay.Ticks - GetElapsedTime(tickStartTimestamp).Ticks),
-                        PrecisionOption,
-                        TokenSource.Token);
-                }
+                DelayProvider.Delay(
+                    TimeSpan.FromTicks(nextDelay.Ticks - GetElapsedTime(tickStartTimestamp).Ticks),
+                    PrecisionOption,
+                    tokenSource.Token);
             }
 
             // start measuring the time interval which includes updating the state for the next tick event
@@ -232,6 +241,27 @@ public abstract class PrecisionThreadBase : IDisposable
         return previousValue;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void SignalCancellation()
+    {
+        lock (SyncLock)
+        {
+            if (TokenSourceReference is null || !TokenSourceReference.TryGetTarget(out var tokenSource))
+                return;
+
+            TokenSourceReference = null;
+            
+            try
+            {
+                tokenSource.Cancel();
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+    }
+
     /// <summary>
     /// Disposes internal unmanaged and optionally managed resources.
     /// </summary>
@@ -241,15 +271,11 @@ public abstract class PrecisionThreadBase : IDisposable
         if (Interlocked.Increment(ref m_IsDisposed) > 1)
             return;
 
-        TokenSource.Cancel();
+        SignalCancellation();
 
         if (alsoManaged)
         {
-            lock (SyncLock)
-            {
-                // TODO: dispose managed state (managed objects)
-                TokenSource.Dispose();
-            }
+            // TODO: dispose managed state (managed objects)
         }
 
         // TODO: free unmanaged resources (unmanaged objects) and override finalizer

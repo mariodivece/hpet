@@ -6,18 +6,11 @@ internal class Program
 {
     static void Main(string[] args)
     {
-        //RunPrecisionTimerSample(10);
-
-        var cts = new CancellationTokenSource();
-        RunAsyncDelaySample(cts.Token);
-        Console.ReadKey();
-        cts.Cancel();
-
-        Console.WriteLine("Press any key to continue.");
-        Console.ReadKey(true);
+        RunPrecisionThreadSample(10);
+        //RunAsyncDelaySample();
     }
 
-    private static void RunPrecisionTimerSample(double intervalMilliseconds)
+    private static void RunPrecisionThreadSample(double intervalMilliseconds)
     {
         var interval = CreateIntervalMillis(intervalMilliseconds);
         var precisionThread = new PrecisionThread((e) =>
@@ -32,20 +25,27 @@ internal class Program
         Console.WriteLine("Disposed!");
     }
 
-    private static async Task RunAsyncDelaySample(CancellationToken ct)
+    private static void RunAsyncDelaySample()
+    {
+        var cts = new CancellationTokenSource();
+        _ = RunAsyncDelaySampleTask(cts.Token);
+        Console.ReadKey();
+        cts.Cancel();
+    }
+
+    private static async Task RunAsyncDelaySampleTask(CancellationToken ct)
     {
         var interval = CreateIntervalMillis(100);
         long tickNumber = 0;
-        Stopwatch sw = Stopwatch.StartNew();
+        var sw = Stopwatch.StartNew();
 
         while (!ct.IsCancellationRequested)
         {
             sw.Restart();
             tickNumber++;
-            await DelayProvider.DelayAsync(interval, DelayPrecision.Default, ct).ConfigureAwait(false);
+            await DelayProvider.DelayAsync(interval, DelayPrecision.Maximum, ct).ConfigureAwait(false);
             Console.WriteLine($"Ticked {tickNumber,10} SW: {sw.Elapsed.TotalMilliseconds,16:N4}");
         }
-
         Console.WriteLine("Finished!");
     }
 
