@@ -3,15 +3,10 @@
 /// <summary>
 /// Emulates a monotonic, High Precision Event Timer (HPET) while attempting
 /// to avoid CPU busy waits as much as possible and accounting for
-/// time drifts between <see cref="Ticked"/> events.
+/// adjustments time drifts between <see cref="Ticked"/> events.
 /// </summary>
 public partial class PrecisionTimer : PrecisionThreadBase
 {
-    // TODO: https://stackoverflow.com/questions/1416139/how-to-get-timestamp-of-tick-precision-in-net-c
-    // TODO: Add a way to get or set TimeSlice timeBeginPeriod and timeEndPeriod and output a disposable
-    // TODO: Encapsulate GetTimestamp with calibrated precise as FileTime wwith stopwatch
-    // TODO: Stopwatch will drift about 5 ms per hour.
-
     /// <summary>
     /// Subscribe to this event to execute code when the <see cref="PrecisionTimer"/> ticks.
     /// </summary>
@@ -27,9 +22,9 @@ public partial class PrecisionTimer : PrecisionThreadBase
         // placeholder
     }
 
-    protected override void ExecuteCycle(PrecisionTickEventArgs tickEvent)
+    /// <inheritdoc />
+    protected override void OnWorkerCycle(PrecisionTickEventArgs tickEvent)
     {
         Ticked?.Invoke(this, tickEvent);
     }
-
 }

@@ -2,11 +2,16 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Xml;
 using Unosquare.Hpet.WinMM;
 
 namespace Unosquare.Hpet;
 
+/// <summary>
+/// Provides CPU balanced and precise (sub-millisecond) mechanisms to
+/// block and wait for a given time interval before having the current thread proceed.
+/// This class is not intended to be inherited or instantiated. Use the static methods
+/// available instead.
+/// </summary>
 public sealed class DelayProvider : IDisposable
 {
     private static readonly long TightLoopThresholdTicks = Convert.ToInt64(TimeSpan.TicksPerMillisecond * 1.5);
@@ -20,6 +25,11 @@ public sealed class DelayProvider : IDisposable
     private volatile uint TimerId;
     private long IsDisposed;
 
+    /// <summary>
+    /// Creates a new instance of the <see cref="DelayProvider"/> class.
+    /// </summary>
+    /// <param name="startTimestamp">A required reference to a starting <see cref="Stopwatch"/> timestamp.</param>
+    /// <param name="delay">The requested delay expressed as a <see cref="TimeSpan"/></param>
     private DelayProvider(long startTimestamp, TimeSpan delay)
     {
         StartTimestamp = startTimestamp;
@@ -28,14 +38,53 @@ public sealed class DelayProvider : IDisposable
         TimerCallback = new(HandleTimerCallback);
     }
 
+    /// <summary>
+    /// Blocks execution of the current thread until the specified
+    /// time delay has elapsed.
+    /// </summary>
+    /// <param name="delay">The requested amount of time to block.</param>
+    /// <param name="ct">The optional cancellation token.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Delay(TimeSpan delay, CancellationToken ct)
+    public static void Delay(TimeSpan delay, CancellationToken ct = default)
     {
         var startTimestamp = Stopwatch.GetTimestamp();
         using var p = new DelayProvider(startTimestamp, delay);
         p.Wait(ct);
     }
 
+    /// <summary>
+    /// Blocks execution of the current thread until the specified
+    /// time delay has elapsed.
+    /// </summary>
+    /// <param name="milliseconds">The requested number of milliseconds to block.</param>
+    /// <param name="ct">The optional cancellation token.</param>
+    public static void Delay(int milliseconds, CancellationToken ct = default) =>
+        Delay(TimeSpan.FromTicks(Convert.ToInt64(milliseconds * TimeSpan.TicksPerMillisecond)), ct);
+
+    /// <summary>
+    /// Returns a task that completes after the specified delay.
+    /// </summary>
+    /// <param name="delay">The requested amount of time delay befor the task completes.</param>
+    /// <param name="ct">The optional cancellation token.</param>
+    public static Task DelayAsync(TimeSpan delay, CancellationToken ct = default)
+    {
+        var startTimestamp = Stopwatch.GetTimestamp();
+        return Task.Run(() =>
+        {
+            using var p = new DelayProvider(startTimestamp, delay);
+            p.Wait(ct);
+        }, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Returns a task that completes after the specified delay.
+    /// </summary>
+    /// <param name="milliseconds">The requested number of milliseconds befor the task completes.</param>
+    /// <param name="ct">The optional cancellation token.</param>
+    public static Task DelayAsync(int milliseconds, CancellationToken ct = default) =>
+        DelayAsync(TimeSpan.FromTicks(Convert.ToInt64(milliseconds * TimeSpan.TicksPerMillisecond)), ct);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Wait(CancellationToken ct = default)
     {
         HandleTimerCallback(TimerId, default, ref UserConext, default, default);
@@ -114,6 +163,7 @@ public sealed class DelayProvider : IDisposable
         // TODO: set large fields to null
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method

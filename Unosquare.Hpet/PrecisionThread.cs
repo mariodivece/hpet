@@ -9,7 +9,7 @@ public class PrecisionThread : PrecisionThreadBase
         UserCallback = userCallback;
     }
 
-    protected override void ExecuteCycle(PrecisionTickEventArgs tickEvent)
+    protected override void OnWorkerCycle(PrecisionTickEventArgs tickEvent)
     {
         UserCallback.Invoke(tickEvent);
     }

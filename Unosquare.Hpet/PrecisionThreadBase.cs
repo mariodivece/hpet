@@ -4,29 +4,92 @@ using System.Runtime.CompilerServices;
 namespace Unosquare.Hpet;
 
 /// <summary>
-/// Represents a mostly drop-in replacement for a background <see cref="Thread"/>
-/// which executes cycles on monotonic, high precision intervals.
+/// Represents a background <see cref="Thread"/>
+/// which executes cycles on monotonic, precise, and accurate intervals.
+/// Override the <see cref="OnWorkerCycle(PrecisionTickEventArgs)"/> to perform work for a single cycle.
+/// Call the <see cref="Start"/> method to begin executing cycles.
+/// Call the <see cref="Dispose()"/> method to request the background worker to stop executing cycles.
+/// Override the <see cref="OnWorkerFinished(Exception?)"/> to get notified when no more cycles will be executed.
 /// </summary>
 public abstract class PrecisionThreadBase : IDisposable
 {
-    private long IsDisposed;
+    private long m_IsDisposed;
     private readonly CancellationTokenSource TokenSource = new();
+    private readonly object SyncLock = new();
 
-    public PrecisionThreadBase(TimeSpan interval)
+    /// <summary>
+    /// Creates a new instance of the <see cref="PrecisionThreadBase"/> class.
+    /// </summary>
+    /// <param name="interval">The desired cycle execution interval. Must be a positive value.</param>
+    protected PrecisionThreadBase(TimeSpan interval)
     {
-        Interval = interval;
+        Interval = interval.Ticks <= 0 ? TimeSpan.FromMilliseconds(1) : interval;
         WorkerThread = new(WorkerThreadLoop)
         {
             IsBackground = true
         };
     }
 
+    /// <summary>
+    /// Gets the requested interval at which cycles are to be monotonically executed.
+    /// </summary>
+    public TimeSpan Interval { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the <see cref="Dispose()"/> method has been called.
+    /// </summary>
+    protected bool IsDisposed => Interlocked.Read(ref m_IsDisposed) > 0;
+
+    /// <summary>
+    /// Provides access to the underlying background thread.
+    /// </summary>
     protected Thread WorkerThread { get; }
 
-    public virtual void Start() => WorkerThread.Start();
+    /// <summary>
+    /// Starts the worker thread loop and begins executing cycles.
+    /// </summary>
+    /// <exception cref="ObjectDisposedException">Thrown when <see cref="Dispose()"/> has been called before.</exception>
+    public virtual void Start()
+    {
+        if (IsDisposed)
+            throw new ObjectDisposedException(nameof(PrecisionThreadBase));
 
-    protected abstract void ExecuteCycle(PrecisionTickEventArgs tickEvent);
+        WorkerThread.Start();
+    }
 
+    /// <summary>
+    /// Implement this method to perform the actions needed for a single cycle execution.
+    /// Ideally, you should ensure the execution of the cycle does not take longer than <see cref="Interval"/>.
+    /// </summary>
+    /// <param name="tickEvent">Provides timing information on the current cycle.</param>
+    protected abstract void OnWorkerCycle(PrecisionTickEventArgs tickEvent);
+
+    /// <summary>
+    /// Called when <see cref="OnWorkerCycle(PrecisionTickEventArgs)"/> throws an unhandled exception.
+    /// Override this method to handle the exception and decide whether or not execution can continue.
+    /// By default this method will simply ignore the exception and signal the worker thread to exit.
+    /// </summary>
+    /// <param name="ex">The unhandled exception that was thrown.</param>
+    /// <param name="exitWorker">A value to signal the worker thread to exit the cycle execution loop.</param>
+    protected virtual void OnWorkerExeption(Exception ex, out bool exitWorker)
+    {
+        exitWorker = true;
+    }
+
+    /// <summary>
+    /// Called when the worker thread can guarantee no more <see cref="OnWorkerCycle(PrecisionTickEventArgs)"/>
+    /// methods calls will be made and right before the <see cref="Dispose()"/> method is automatically called.
+    /// </summary>
+    /// <param name="exitException">When set, contains the exception that caused the worker to exit the cycle execution loop.</param>
+    protected virtual void OnWorkerFinished(Exception? exitException)
+    {
+        // placeholder
+    }
+
+    /// <summary>
+    /// Continuously and monotonically calls <see cref="OnWorkerCycle(PrecisionTickEventArgs)"/>
+    /// at the specified <see cref="Interval"/>.
+    /// </summary>
     private void WorkerThreadLoop()
     {
         const int IntervalSampleThreshold = 10;
@@ -41,7 +104,6 @@ public abstract class PrecisionThreadBase : IDisposable
         var intervalElapsed = TimeSpan.Zero;
         var naturalDriftOffset = TimeSpan.Zero;
         var averageDriftOffset = TimeSpan.Zero;
-        
 
         eventState.TickNumber = 1;
         eventState.Interval = TimeSpan.Zero;
@@ -49,17 +111,35 @@ public abstract class PrecisionThreadBase : IDisposable
         var tickStartTimestamp = Stopwatch.GetTimestamp();
         var previousTickTimestamp = default(long);
 
-        while (Interlocked.Read(ref IsDisposed) <= 0)
+        Exception? exitException = null;
+
+        while (!IsDisposed)
         {
             // Invoke the user action with the current state
-            ExecuteCycle(eventState.Clone());
-
-            // Introduce a delay
-            if (GetElapsedTime(tickStartTimestamp).Ticks < nextDelay.Ticks)
+            try
             {
-                DelayProvider.Delay(
-                    TimeSpan.FromTicks(nextDelay.Ticks - GetElapsedTime(tickStartTimestamp).Ticks),
-                    TokenSource.Token);
+                OnWorkerCycle(eventState.Clone());
+            }
+            catch (Exception ex)
+            {
+                OnWorkerExeption(ex, out var exitWorker);
+                if (exitWorker)
+                {
+                    exitException = ex;
+                    break;
+                }
+            }
+
+            // Capture the cancellation token with thread safety
+            lock (SyncLock)
+            {
+                // Introduce a delay
+                if (GetElapsedTime(tickStartTimestamp).Ticks < nextDelay.Ticks)
+                {
+                    DelayProvider.Delay(
+                        TimeSpan.FromTicks(nextDelay.Ticks - GetElapsedTime(tickStartTimestamp).Ticks),
+                        TokenSource.Token);
+                }
             }
 
             // start measuring the time interval which includes updating the state for the next tick event
@@ -72,7 +152,6 @@ public abstract class PrecisionThreadBase : IDisposable
             // compute actual interval elapsed time taking into account drifting due to addition of
             // discrete events not adding up to the natural time elapsed
             naturalDriftOffset = TimeSpan.FromTicks((eventState.NaturalElapsed.Ticks - eventState.DiscreteElapsed.Ticks) % Interval.Ticks);
-            // naturalDriftOffset = TimeSpan.Zero;
             eventState.Interval = TimeSpan.FromTicks(intervalElapsed.Ticks + naturalDriftOffset.Ticks);
 
             // Add the interval elapsed to the discrete elapsed
@@ -125,6 +204,16 @@ public abstract class PrecisionThreadBase : IDisposable
 
             eventState.TickNumber += (1 + eventState.MissedEventCount);
         }
+
+        // Notify the worker finished and always dispose immediately.
+        try
+        {
+            OnWorkerFinished(exitException);
+        }
+        finally
+        {
+            Dispose();
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -139,29 +228,29 @@ public abstract class PrecisionThreadBase : IDisposable
         return previousValue;
     }
 
-    public TimeSpan Interval { get; }
-
     /// <summary>
     /// Disposes internal unmanaged and optionally managed resources.
     /// </summary>
     /// <param name="alsoManaged"></param>
     protected virtual void Dispose(bool alsoManaged)
     {
-        if (Interlocked.Increment(ref IsDisposed) > 1)
+        if (Interlocked.Increment(ref m_IsDisposed) > 1)
             return;
 
         TokenSource.Cancel();
 
         if (alsoManaged)
         {
-            // TODO: dispose managed state (managed objects)
-            TokenSource.Dispose();
+            lock (SyncLock)
+            {
+                // TODO: dispose managed state (managed objects)
+                TokenSource.Dispose();
+            }
         }
 
         // TODO: free unmanaged resources (unmanaged objects) and override finalizer
         // TODO: set large fields to null
     }
-
 
     /// <inheritdoc />
     public void Dispose()
