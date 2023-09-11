@@ -117,6 +117,7 @@ public sealed class DelayProvider : IDisposable
         }
 
         // Tight loop for sub-millisecond delay
+        // TODO: Provide an option to disable the tight loop and reduce CPU usage
         if (RequestedDelay.Ticks - Stopwatch.GetElapsedTime(StartTimestamp).Ticks <= TightLoopThresholdTicks)
         {
             var spinner = default(SpinWait);
