@@ -97,7 +97,7 @@ public abstract class PrecisionThreadBase : IDisposable
         var eventDurationsCapacity = Convert.ToInt32(Math.Max(IntervalSampleThreshold, 1d / Interval.TotalSeconds));
         var eventDurations = new Queue<long>(eventDurationsCapacity);
 
-        var eventState = new PrecisionTickEventArgs();
+        var eventState = new PrecisionTickEventArgs(interval: Interval);
         var nextDelay = Interval;
         var naturalStartTimestamp = default(long);
         var discreteElapsed = TimeSpan.Zero;
@@ -105,8 +105,8 @@ public abstract class PrecisionThreadBase : IDisposable
         var naturalDriftOffset = TimeSpan.Zero;
         var averageDriftOffset = TimeSpan.Zero;
 
-        eventState.TickNumber = 1;
-        eventState.Interval = TimeSpan.Zero;
+        eventState.TickEventNumber = 1;
+        eventState.IntervalElapsed = TimeSpan.Zero;
 
         var tickStartTimestamp = Stopwatch.GetTimestamp();
         var previousTickTimestamp = default(long);
@@ -152,12 +152,12 @@ public abstract class PrecisionThreadBase : IDisposable
             // compute actual interval elapsed time taking into account drifting due to addition of
             // discrete events not adding up to the natural time elapsed
             naturalDriftOffset = TimeSpan.FromTicks((eventState.NaturalElapsed.Ticks - eventState.DiscreteElapsed.Ticks) % Interval.Ticks);
-            eventState.Interval = TimeSpan.FromTicks(intervalElapsed.Ticks + naturalDriftOffset.Ticks);
+            eventState.IntervalElapsed = TimeSpan.FromTicks(intervalElapsed.Ticks + naturalDriftOffset.Ticks);
 
             // Add the interval elapsed to the discrete elapsed
-            eventState.DiscreteElapsed = TimeSpan.FromTicks(eventState.DiscreteElapsed.Ticks + eventState.Interval.Ticks);
+            eventState.DiscreteElapsed = TimeSpan.FromTicks(eventState.DiscreteElapsed.Ticks + eventState.IntervalElapsed.Ticks);
 
-            if (eventState.TickNumber <= 1)
+            if (eventState.TickEventNumber <= 1)
             {
                 // on the first tick, start counting the natural time elapsed
                 naturalStartTimestamp = previousTickTimestamp;
@@ -174,7 +174,7 @@ public abstract class PrecisionThreadBase : IDisposable
                 _ = eventDurations.Dequeue();
 
             // Push a sample to the analysis set.
-            eventDurations.Enqueue(eventState.Interval.Ticks);
+            eventDurations.Enqueue(eventState.IntervalElapsed.Ticks);
 
             // Compute the average.
             eventState.IntervalAverage = TimeSpan.FromTicks(
@@ -202,7 +202,7 @@ public abstract class PrecisionThreadBase : IDisposable
                 eventState.MissedEventCount = 0;
             }
 
-            eventState.TickNumber += (1 + eventState.MissedEventCount);
+            eventState.TickEventNumber += (1 + eventState.MissedEventCount);
         }
 
         // Notify the worker finished and always dispose immediately.

@@ -7,7 +7,7 @@ internal class Program
     static void Main(string[] args)
     {
         var startTimestamp = Stopwatch.GetTimestamp();
-        var interval = TimeSpan.FromMilliseconds(10);
+        var interval = TimeSpan.FromMilliseconds(5000);
         var totalSkipped = 0;
         var precisionThread = new PrecisionThread((e) =>
         {
@@ -17,10 +17,10 @@ internal class Program
             totalSkipped += e.MissedEventCount;
 
             Console.WriteLine($"""
-                Period:       {interval.TotalMilliseconds,16:N4} ms.
-                Number:       {e.TickNumber,16}
+                Period:       {e.Interval.TotalMilliseconds,16:N4} ms.
+                Number:       {e.TickEventNumber,16}
                 Ext. Elapsed: {Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds,16:N4}
-                Elapsed:      {e.Interval.TotalMilliseconds,16:N4} ms.
+                Elapsed:      {e.IntervalElapsed.TotalMilliseconds,16:N4} ms.
                 Average:      {e.IntervalAverage.TotalMilliseconds,16:N4} ms.
                 Jitter:       {e.IntervalJitter.TotalMilliseconds,16:N4} ms.
                 Skipped:      {e.MissedEventCount,16} cycles
@@ -38,6 +38,7 @@ internal class Program
         precisionThread.Start();
         Console.ReadKey(true);
         precisionThread.Dispose();
+        Console.WriteLine("Disposed!");
         Console.ReadKey(true);
     }
 
