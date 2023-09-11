@@ -55,10 +55,10 @@ internal record struct LoopState
     public long CurrentTickTimestamp;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static long GetTimestamp() => Stopwatch.GetTimestamp();
+    private static long GetTimestamp() => Stopwatch.GetTimestamp();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static TimeSpan GetElapsedTime(long startingTimestamp) => Stopwatch.GetElapsedTime(startingTimestamp);
+    private static TimeSpan GetElapsedTime(long startingTimestamp) => Stopwatch.GetElapsedTime(startingTimestamp);
 
     public PrecisionTickEventArgs Snapshot() => EventState.Clone();
 
