@@ -6,44 +6,43 @@ internal class Program
 {
     static void Main(string[] args)
     {
-        var startTimestamp = Stopwatch.GetTimestamp();
-        var interval = TimeSpan.FromMilliseconds(5000);
-        var totalSkipped = 0;
+        RunPrecisionTimerSample(10);
+        Console.WriteLine("Press any key to continue.");
+        Console.ReadKey(true);
+    }
+
+    private static void RunPrecisionTimerSample(double intervalMilliseconds)
+    {
+        var interval = CreateIntervalMillis(intervalMilliseconds);
         var precisionThread = new PrecisionThread((e) =>
         {
-            Console.CursorLeft = 0;
-            Console.CursorTop = 0;
-
-            totalSkipped += e.MissedEventCount;
-
-            Console.WriteLine($"""
-                Period:       {e.Interval.TotalMilliseconds,16:N4} ms.
-                Number:       {e.TickEventNumber,16}
-                Ext. Elapsed: {Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds,16:N4}
-                Elapsed:      {e.IntervalElapsed.TotalMilliseconds,16:N4} ms.
-                Average:      {e.IntervalAverage.TotalMilliseconds,16:N4} ms.
-                Jitter:       {e.IntervalJitter.TotalMilliseconds,16:N4} ms.
-                Skipped:      {e.MissedEventCount,16} cycles
-                Total Skip:   {totalSkipped,16} cycles
-                Discrete:     {e.DiscreteElapsed.TotalMilliseconds,16:N4} ms.
-                Natural:      {e.NaturalElapsed.TotalMilliseconds,16:N4} ms.
-                """);
-
-            startTimestamp = Stopwatch.GetTimestamp();
-
-            //Thread.Sleep(1);
+            PrintEventToConcolse(e);
+            Console.WriteLine("Ticked!");
         }, interval);
 
-        //precisionTimer.Start();
         precisionThread.Start();
         Console.ReadKey(true);
         precisionThread.Dispose();
         Console.WriteLine("Disposed!");
-        Console.ReadKey(true);
     }
 
-    private static void Timer_Ticked(object? sender, PrecisionTickEventArgs e)
+    private static void PrintEventToConcolse(PrecisionTickEventArgs e)
     {
-        //throw new NotImplementedException();
+        Console.CursorLeft = 0;
+        Console.CursorTop = 0;
+
+        Console.WriteLine($"""
+                Period:       {e.Interval.TotalMilliseconds,16:N4} ms.
+                Number:       {e.TickEventNumber,16}
+                Elapsed:      {e.IntervalElapsed.TotalMilliseconds,16:N4} ms.
+                Average:      {e.IntervalAverage.TotalMilliseconds,16:N4} ms.
+                Jitter:       {e.IntervalJitter.TotalMilliseconds,16:N4} ms.
+                Skipped:      {e.MissedEventCount,16} cycles
+                Discrete:     {e.DiscreteElapsed.TotalMilliseconds,16:N4} ms.
+                Natural:      {e.NaturalElapsed.TotalMilliseconds,16:N4} ms.
+                """);
     }
+
+    private static TimeSpan CreateIntervalMillis(double milliseconds) =>
+        TimeSpan.FromTicks(Convert.ToInt64(milliseconds * TimeSpan.TicksPerMillisecond));
 }
