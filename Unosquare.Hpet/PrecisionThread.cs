@@ -5,7 +5,8 @@ public class PrecisionThread : PrecisionThreadBase
     private readonly Action<PrecisionTickEventArgs> CycleAction;
     private readonly TaskCompletionSource WorkerExitTaskSource;
 
-    public PrecisionThread(Action<PrecisionTickEventArgs> cycleAction, TimeSpan interval) : base(interval)
+    public PrecisionThread(Action<PrecisionTickEventArgs> cycleAction, TimeSpan interval, DelayPrecision precisionOption = DelayPrecision.Maximum)
+        : base(interval, precisionOption)
     {
         CycleAction = cycleAction;
         WorkerExitTaskSource = new(this);

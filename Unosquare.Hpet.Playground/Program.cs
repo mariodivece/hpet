@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Linq.Expressions;
 
 namespace Unosquare.Hpet.Playground;
 
@@ -43,8 +42,8 @@ internal class Program
         {
             sw.Restart();
             tickNumber++;
-            await DelayProvider.DelayAsync(interval, ct).ConfigureAwait(false);
-            Console.WriteLine($"Ticked {tickNumber,10} SW: {sw.ElapsedMilliseconds,16:N4}");
+            await DelayProvider.DelayAsync(interval, DelayPrecision.Default, ct).ConfigureAwait(false);
+            Console.WriteLine($"Ticked {tickNumber,10} SW: {sw.Elapsed.TotalMilliseconds,16:N4}");
         }
 
         Console.WriteLine("Finished!");

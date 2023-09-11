@@ -14,7 +14,7 @@ namespace Unosquare.Hpet;
 /// </summary>
 public sealed class DelayProvider
 {
-    private static readonly long TightLoopThresholdTicks = Convert.ToInt64(TimeSpan.TicksPerMillisecond * 1.5);
+    private static readonly TimeSpan TightLoopThreshold;
 
     private readonly TimeSpan RequestedDelay;
     private readonly WinMMTimerCallback TimerCallback;
@@ -24,17 +24,31 @@ public sealed class DelayProvider
     private volatile uint TimerId;
     private object? EventSignal;
     private CancellationToken TimerCancellationToken = CancellationToken.None;
+    private DelayPrecision PrecisionOption;
+
+    /// <summary>
+    /// Initializes static fields for the <see cref="DelayProvider"/> utility class.
+    /// </summary>
+    static DelayProvider()
+    {
+        var timerCaps = default(TimeCaps);
+        NativeMethods.TimeGetDevCaps(ref timerCaps, Constants.SizeOfTimeCaps);
+        var minimumPeriodMillis = Math.Max(1, timerCaps.ResolutionMinPeriod);
+        TightLoopThreshold = TimeSpan.FromTicks(Convert.ToInt64(TimeSpan.TicksPerMillisecond * minimumPeriodMillis * 1.5));
+    }
 
     /// <summary>
     /// Creates a new instance of the <see cref="DelayProvider"/> class.
     /// </summary>
     /// <param name="startTimestamp">A required reference to a starting <see cref="Stopwatch"/> timestamp.</param>
     /// <param name="delay">The requested delay expressed as a <see cref="TimeSpan"/></param>
-    private DelayProvider(long startTimestamp, TimeSpan delay)
+    /// <param name="precisionOption">The configured delay precision.</param>
+    private DelayProvider(long startTimestamp, TimeSpan delay, DelayPrecision precisionOption)
     {
         StartTimestamp = startTimestamp;
         RequestedDelay = delay;
         TimerCallback = new(HandleTimerCallback);
+        PrecisionOption = precisionOption;
     }
 
     /// <summary>
@@ -42,13 +56,14 @@ public sealed class DelayProvider
     /// time delay has elapsed.
     /// </summary>
     /// <param name="delay">The requested amount of time to block.</param>
+    /// <param name="precision">The delay precision option.</param>
     /// <param name="ct">The optional cancellation token.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Delay(TimeSpan delay, CancellationToken ct = default)
+    public static void Delay(TimeSpan delay, DelayPrecision precision = DelayPrecision.Maximum, CancellationToken ct = default)
     {
         var startTimestamp = Stopwatch.GetTimestamp();
         using var mre = new ManualResetEventSlim(false);
-        var p = new DelayProvider(startTimestamp, delay)
+        var p = new DelayProvider(startTimestamp, delay, precision)
         {
             EventSignal = mre
         };
@@ -62,18 +77,19 @@ public sealed class DelayProvider
     /// time delay has elapsed.
     /// </summary>
     /// <param name="delay">The requested amount of time to block.</param>
+    /// /// <param name="precision">The delay precision option.</param>
     /// <param name="ct">The optional cancellation token.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Task DelayAsync(TimeSpan delay, CancellationToken ct = default)
+    public static Task DelayAsync(TimeSpan delay, DelayPrecision precision = DelayPrecision.Maximum, CancellationToken ct = default)
     {
         var startTimestamp = Stopwatch.GetTimestamp();
-        var p = new DelayProvider(startTimestamp, delay);
+        var p = new DelayProvider(startTimestamp, delay, precision);
 
         // Create a TCS referencing the delay provider so that
         // it does not go out of scope while the task is running.
         var tcs = new TaskCompletionSource(p);
 
-        // Set the event signal to be the TCS
+        // Set the event signal to be the TCS because we are returning a task.
         p.EventSignal = tcs;
 
         p.BeginTimerWaitLoop(ct);
@@ -121,9 +137,9 @@ public sealed class DelayProvider
             return;
         }
 
-        // Tight loop for sub-millisecond delay
-        // TODO: Provide an option to disable the tight loop and reduce CPU usage
-        if (RequestedDelay.Ticks - Stopwatch.GetElapsedTime(StartTimestamp).Ticks <= TightLoopThresholdTicks)
+        // Tight loop for sub-millisecond delay precision.
+        if (PrecisionOption == DelayPrecision.Maximum && 
+            RequestedDelay.Ticks - Stopwatch.GetElapsedTime(StartTimestamp).Ticks <= TightLoopThreshold.Ticks)
         {
             var spinner = default(SpinWait);
 

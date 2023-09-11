@@ -16,18 +16,21 @@ public abstract class PrecisionThreadBase : IDisposable
     private long m_IsDisposed;
     private readonly CancellationTokenSource TokenSource = new();
     private readonly object SyncLock = new();
+    private readonly DelayPrecision PrecisionOption;
 
     /// <summary>
     /// Creates a new instance of the <see cref="PrecisionThreadBase"/> class.
     /// </summary>
     /// <param name="interval">The desired cycle execution interval. Must be a positive value.</param>
-    protected PrecisionThreadBase(TimeSpan interval)
+    /// <param name="precisionOption">The delay precision strategy to employ.</param>
+    protected PrecisionThreadBase(TimeSpan interval, DelayPrecision precisionOption)
     {
         Interval = interval.Ticks <= 0 ? TimeSpan.FromMilliseconds(1) : interval;
         WorkerThread = new(WorkerThreadLoop)
         {
             IsBackground = true
         };
+        PrecisionOption = precisionOption;
     }
 
     /// <summary>
@@ -138,6 +141,7 @@ public abstract class PrecisionThreadBase : IDisposable
                 {
                     DelayProvider.Delay(
                         TimeSpan.FromTicks(nextDelay.Ticks - GetElapsedTime(tickStartTimestamp).Ticks),
+                        PrecisionOption,
                         TokenSource.Token);
                 }
             }
