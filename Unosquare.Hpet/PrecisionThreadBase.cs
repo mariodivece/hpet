@@ -76,7 +76,7 @@ public abstract class PrecisionThreadBase : PrecisionLoop
 
     /// <summary>
     /// Continuously and monotonically calls <see cref="DoCycleWork(PrecisionCycleEventArgs)"/>
-    /// at the specified <see cref="Interval"/>.
+    /// at the specified <see cref="PrecisionLoop.Interval"/>.
     /// </summary>
     private void WorkerThreadLoop()
     {
@@ -90,6 +90,7 @@ public abstract class PrecisionThreadBase : PrecisionLoop
         while (!IsCancellationRequested)
         {
             // Invoke the user action with the current state
+#pragma warning disable CA1031
             try
             {
                 DoCycleWork(s.Snapshot());
@@ -103,6 +104,7 @@ public abstract class PrecisionThreadBase : PrecisionLoop
                     break;
                 }
             }
+#pragma warning restore CA1031
 
             // Introduce a delay
             if (!s.HasCycleIntervalElapsed)

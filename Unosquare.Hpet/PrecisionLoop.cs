@@ -4,7 +4,9 @@ namespace Unosquare.Hpet;
 
 /// <summary>
 /// Represents a base class for implementing Precision Timers,
-/// Precision Threads or Precision Tasks.
+/// Precision Threads or Precision Tasks. This class does not do anything
+/// on its own, and therefore it is not recommended that you inherit
+/// from it unless a highly customized cycle scheduler implementation is required.
 /// </summary>
 public abstract class PrecisionLoop : IDisposable
 {
@@ -88,6 +90,7 @@ public abstract class PrecisionLoop : IDisposable
 
             TokenSourceReference = null;
 
+#pragma warning disable CA1031
             try
             {
                 tokenSource.Cancel();
@@ -96,6 +99,7 @@ public abstract class PrecisionLoop : IDisposable
             {
                 // ignore
             }
+#pragma warning restore CA1031
         }
     }
 
