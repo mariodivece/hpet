@@ -61,7 +61,7 @@ internal class Program
 
         Console.WriteLine($"""
                 Period:       {e.Interval.TotalMilliseconds,16:N4} ms.
-                Number:       {e.EventNumber,16}
+                Number:       {e.EventIndex,16}
                 Elapsed:      {e.IntervalElapsed.TotalMilliseconds,16:N4} ms.
                 Average:      {e.IntervalAverage.TotalMilliseconds,16:N4} ms.
                 Jitter:       {e.IntervalJitter.TotalMilliseconds,16:N4} ms.

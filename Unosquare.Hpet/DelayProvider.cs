@@ -36,7 +36,7 @@ public sealed class DelayProvider
         var timerCaps = default(TimeCaps);
         NativeMethods.TimeGetDevCaps(ref timerCaps, Constants.SizeOfTimeCaps);
         var minimumPeriodMillis = Math.Max(1, timerCaps.ResolutionMinPeriod);
-        TightLoopThreshold = TimeSpan.FromTicks(Convert.ToInt64(TimeSpan.TicksPerMillisecond * minimumPeriodMillis * 1.5));
+        TightLoopThreshold = TimeSpan.FromTicks(Convert.ToInt64(TimeSpan.TicksPerMillisecond * minimumPeriodMillis * 2));
     }
 
     /// <summary>

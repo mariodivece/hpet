@@ -24,7 +24,7 @@ internal record struct LoopState
 
         // Initialize state variables
         Interval = Loop.Interval;
-        EventState = new(interval: Interval, eventNumber: 1, intervalElapsed: TimeSpan.Zero);
+        EventState = new(interval: Interval, eventIndex: 0, intervalElapsed: TimeSpan.Zero);
         NextDelay = Interval;
 
         // Compute event duration sample count and instantiate the queue.
@@ -59,14 +59,32 @@ internal record struct LoopState
 
     public long CurrentTickTimestamp;
 
+    /// <summary>
+    /// Provides a consistent timestamp for time measurement purposes.
+    /// </summary>
+    /// <returns>An internal, incremental timestamp, regarldes of the system date and time.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static long GetTimestamp() => Stopwatch.GetTimestamp();
 
+    /// <summary>
+    /// Computes the elapsed <see cref="TimeSpan"/> between a prior timestamp and the current one.
+    /// </summary>
+    /// <param name="startingTimestamp">The previously obtained timestamp with <see cref="GetTimestamp"/></param>
+    /// <returns>The <see cref="TimeSpan"/> with the elapsed time so far.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static TimeSpan GetElapsedTime(long startingTimestamp) => Stopwatch.GetElapsedTime(startingTimestamp);
 
+    /// <summary>
+    /// Creates a copy of of the internal <see cref="EventState"/>
+    /// for passing on as arguments to either callbacks or events.
+    /// </summary>
+    /// <returns>A copy of the internal <see cref="EventState"/></returns>
     public PrecisionCycleEventArgs Snapshot() => EventState.Clone();
 
+    /// <summary>
+    /// Automatically updates the <see cref="EventState"/> and the internal
+    /// timing information of this state tracker.
+    /// </summary>
     public void Update()
     {
         // start measuring the time interval which includes updating the state for the next tick event
@@ -90,7 +108,7 @@ internal record struct LoopState
         // Add the interval elapsed to the discrete elapsed
         EventState.DiscreteElapsed = TimeSpan.FromTicks(EventState.DiscreteElapsed.Ticks + IntervalElapsed.Ticks);
 
-        if (EventState.EventNumber <= 1)
+        if (EventState.EventIndex <= 0)
         {
             // on the first tick, start counting the natural time elapsed
             NaturalStartTimestamp = PreviousTickTimestamp;
@@ -137,7 +155,6 @@ internal record struct LoopState
             EventState.MissedEventCount = 0;
         }
 
-        EventState.EventNumber += (1 + EventState.MissedEventCount);
+        EventState.EventIndex += (1 + EventState.MissedEventCount);
     }
-
 }

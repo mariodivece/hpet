@@ -17,7 +17,7 @@ public class PrecisionTimer : PrecisionThreadBase
     /// </summary>
     /// <param name="interval">The ticking interval expressed as a <see cref="TimeSpan"/>. The minimum interval is 1 millisecond.</param>
     /// <param name="precisionOption">The delay precision option.</param>
-    public PrecisionTimer(TimeSpan interval, DelayPrecision precisionOption= DelayPrecision.Default)
+    public PrecisionTimer(TimeSpan interval, DelayPrecision precisionOption = DelayPrecision.Default)
         : base(interval, precisionOption)
     {
         // placeholder

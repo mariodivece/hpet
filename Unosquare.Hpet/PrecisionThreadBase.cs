@@ -4,12 +4,14 @@
 /// Represents a background <see cref="Thread"/>
 /// which executes cycles on monotonic, precise, and accurate intervals.
 /// Override the <see cref="DoCycleWork(PrecisionCycleEventArgs)"/> to perform work for a single cycle.
-/// Call the <see cref="Start()"/> method to begin executing cycles.
-/// Call the <see cref="Dispose()"/> method to request the background worker to stop executing cycles.
+/// Call the <see cref="PrecisionLoop.Start()"/> method to begin executing cycles.
+/// Call the <see cref="PrecisionLoop.Dispose()"/> method to request the background worker to stop executing cycles.
 /// Override the <see cref="OnWorkerFinished(Exception?)"/> to get notified when no more cycles will be executed.
 /// </summary>
 public abstract class PrecisionThreadBase : PrecisionLoop
 {
+    private readonly TaskCompletionSource WorkerExitTaskSource;
+
     /// <summary>
     /// Creates a new instance of the <see cref="PrecisionThreadBase"/> class.
     /// </summary>
@@ -18,6 +20,8 @@ public abstract class PrecisionThreadBase : PrecisionLoop
     protected PrecisionThreadBase(TimeSpan interval, DelayPrecision precisionOption)
         : base(interval, precisionOption)
     {
+        WorkerExitTaskSource = new(this);
+
         WorkerThread = new(WorkerThreadLoop)
         {
             IsBackground = true
@@ -56,12 +60,18 @@ public abstract class PrecisionThreadBase : PrecisionLoop
 
     /// <summary>
     /// Called when the worker thread can guarantee no more <see cref="DoCycleWork(PrecisionCycleEventArgs)"/>
-    /// methods calls will be made and right before the <see cref="Dispose()"/> method is automatically called.
+    /// methods calls will be made and right before the <see cref="PrecisionLoop.Dispose()"/> method is automatically called.
     /// </summary>
     /// <param name="exitException">When set, contains the exception that caused the worker to exit the cycle execution loop.</param>
     protected virtual void OnWorkerFinished(Exception? exitException)
     {
-        // placeholder
+        if (exitException is not null)
+        {
+            WorkerExitTaskSource.TrySetException(exitException);
+            return;
+        }
+
+        WorkerExitTaskSource.TrySetResult();
     }
 
     /// <summary>
@@ -116,4 +126,11 @@ public abstract class PrecisionThreadBase : PrecisionLoop
             Dispose();
         }
     }
+
+    /// <summary>
+    /// Provides an awaitable task to wait for thread loop termination
+    /// and guaranteeing no more cycles will be executed.
+    /// </summary>
+    /// <returns>An awaitable task.</returns>
+    public Task WaitForExitAsync() => WorkerExitTaskSource.Task;
 }

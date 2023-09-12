@@ -9,7 +9,7 @@ public sealed class PrecisionCycleEventArgs : EventArgs
     /// Creates a new instance of the <see cref="PrecisionCycleEventArgs"/>
     /// </summary>
     internal PrecisionCycleEventArgs(
-        long eventNumber = default,
+        long eventIndex = default,
         int missedEventCount = default,
         TimeSpan interval = default,
         TimeSpan intervalElapsed = default,
@@ -19,7 +19,7 @@ public sealed class PrecisionCycleEventArgs : EventArgs
         TimeSpan discreteElapsed = default)
         : base()
     {
-        EventNumber = eventNumber;
+        EventIndex = eventIndex;
         MissedEventCount = missedEventCount;
         Interval = interval;
         IntervalElapsed = intervalElapsed;
@@ -30,10 +30,10 @@ public sealed class PrecisionCycleEventArgs : EventArgs
     }
 
     /// <summary>
-    /// Gets the incremental event number starting from 1.
-    /// Event numbers may not be consecutive if timer events are missed.
+    /// Gets the incremental event index starting from 0.
+    /// Event indices are not consecutive if timer events are missed.
     /// </summary>
-    public long EventNumber { get; internal set; }
+    public long EventIndex { get; internal set; }
 
     /// <summary>
     /// The number of timer events that were not fired due to excessive time
@@ -78,5 +78,5 @@ public sealed class PrecisionCycleEventArgs : EventArgs
 
 
     internal PrecisionCycleEventArgs Clone() =>
-        new(EventNumber, MissedEventCount, Interval, IntervalElapsed, IntervalAverage, IntervalJitter, NaturalElapsed, DiscreteElapsed);
+        new(EventIndex, MissedEventCount, Interval, IntervalElapsed, IntervalAverage, IntervalJitter, NaturalElapsed, DiscreteElapsed);
 }
