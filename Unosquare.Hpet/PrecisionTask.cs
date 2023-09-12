@@ -33,11 +33,11 @@ public class PrecisionTask : PrecisionLoop
     protected override void StartWorker()
     {
         WorkerTask = Task.Factory.StartNew(
-                    RunWorkerLoopAsync,
-                    this,
-                    CancellationToken.None,
-                    TaskCreationOptions.DenyChildAttach | TaskCreationOptions.LongRunning,
-                    TaskScheduler.Default);
+            RunWorkerLoopAsync,
+            this,
+            CancellationToken.None,
+            TaskCreationOptions.DenyChildAttach | TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
     }
 
     /// <summary>
@@ -91,16 +91,10 @@ public class PrecisionTask : PrecisionLoop
             // Invoke the user action with the current state
             try
             {
+                // Execute cycle work and introduce the delay.
                 await DoCycleWorkAsync(s.Snapshot(), tokenSource.Token).ConfigureAwait(false);
-
-                // Introduce a delay
-                if (!s.HasCycleIntervalElapsed)
-                {
-                    await DelayProvider.DelayAsync(
-                        s.PendingCycleTimeSpan,
-                        PrecisionOption,
-                        tokenSource.Token).ConfigureAwait(false);
-                }
+                await s.PendingCycleTimeSpan.DelayAsync(PrecisionOption, tokenSource.Token)
+                    .ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -114,7 +108,7 @@ public class PrecisionTask : PrecisionLoop
             finally
             {
                 s.Update();
-            }            
+            }
         }
 
         // Notify the worker finished and always dispose immediately.

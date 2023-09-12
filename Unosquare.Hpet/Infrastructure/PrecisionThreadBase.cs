@@ -95,16 +95,9 @@ public abstract class PrecisionThreadBase : PrecisionLoop
             // Invoke the user action with the current state
             try
             {
+                // Execute cycle work and introduce the delay.
                 DoCycleWork(s.Snapshot());
-
-                // Introduce a delay
-                if (!s.HasCycleIntervalElapsed)
-                {
-                    DelayProvider.Delay(
-                        s.PendingCycleTimeSpan,
-                        PrecisionOption,
-                        tokenSource.Token);
-                }
+                s.PendingCycleTimeSpan.Delay(PrecisionOption, tokenSource.Token);
             }
             catch (Exception ex)
             {

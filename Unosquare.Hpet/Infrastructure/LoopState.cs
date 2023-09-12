@@ -33,9 +33,6 @@ internal record struct LoopState
         EventDurations = new Queue<long>(EventDurationsCapacity);
     }
 
-    public readonly bool HasCycleIntervalElapsed =>
-        GetElapsedTime(CurrentTickTimestamp).Ticks >= NextDelay.Ticks;
-
     public readonly TimeSpan PendingCycleTimeSpan =>
         TimeSpan.FromTicks(NextDelay.Ticks - GetElapsedTime(CurrentTickTimestamp).Ticks);
 
