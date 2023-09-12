@@ -16,7 +16,7 @@ namespace Unosquare.Hpet;
 /// </summary>
 public sealed class DelayProvider
 {
-    private static uint MinimumSystemPeriodMillis;
+    private static readonly uint MinimumSystemPeriodMillis;
 
     private readonly TimeSpan TightLoopThreshold;
 
