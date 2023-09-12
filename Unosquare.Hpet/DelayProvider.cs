@@ -52,9 +52,9 @@ public sealed class DelayProvider
         var tightLoopFactor = precisionOption switch
         {
             DelayPrecision.Default => 0d,
-            DelayPrecision.Medium => 0.75d,
-            DelayPrecision.High => 1.5d,
-            DelayPrecision.Maximum => 2d,
+            DelayPrecision.Medium => 2d / 3d,
+            DelayPrecision.High => 4d / 3d,
+            DelayPrecision.Maximum => 6d / 3d,
             _ => 0d
         };
 
@@ -151,7 +151,7 @@ public sealed class DelayProvider
         }
 
         // Tight loop for sub-millisecond delay precision.
-        if (TightLoopThreshold.Ticks > 0 && 
+        if (TightLoopThreshold.Ticks > 0 &&
             RequestedDelay.Ticks - Stopwatch.GetElapsedTime(StartTimestamp).Ticks <= TightLoopThreshold.Ticks)
         {
             var spinner = default(SpinWait);
