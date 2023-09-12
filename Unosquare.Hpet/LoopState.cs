@@ -24,9 +24,9 @@ internal record struct LoopState
         NextDelay = Interval;
 
         // Compute event duration sample count and instantiate the queue.
+        IntervalSampleThreshold = 10; // Math.Max(2, EventDurationsCapacity / 2);
         EventDurationsCapacity = Convert.ToInt32(Math.Max(IntervalSampleThreshold, 1d / Interval.TotalSeconds));
         EventDurations = new Queue<long>(EventDurationsCapacity);
-        IntervalSampleThreshold = Math.Max(2, EventDurationsCapacity / 2);
     }
 
     public readonly bool HasCycleIntervalElapsed =>
@@ -116,7 +116,7 @@ internal record struct LoopState
             Convert.ToInt64(Math.Sqrt(EventDurations.Sum(x => Math.Pow(x - intervalTicks, 2)) / EventDurations.Count)));
 
         // compute drifting to account for average event duration
-        if (EventDurations.Count >= IntervalSampleThreshold)
+        if (EventDurations.Count >= IntervalSampleThreshold / 2)
         {
             AverageDriftOffset = TimeSpan.FromTicks((EventState.IntervalAverage.Ticks - Interval.Ticks) % Interval.Ticks);
             NextDelay = TimeSpan.FromTicks(NextDelay.Ticks - AverageDriftOffset.Ticks);
