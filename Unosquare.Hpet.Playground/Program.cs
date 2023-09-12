@@ -1,60 +1,44 @@
-﻿using System.Diagnostics;
-
-namespace Unosquare.Hpet.Playground;
+﻿namespace Unosquare.Hpet.Playground;
 
 internal class Program
 {
-    static void Main(string[] args)
-    {
-        RunPrecisionThreadSample(5);
-        //RunAsyncDelaySample();
-        
-    }
+    private const DelayPrecision Precision = DelayPrecision.Maximum;
+    private const double IntervalMillis = 10;
 
-    private static void RunPrecisionThreadSample(double intervalMilliseconds)
-    {
-        var interval = CreateIntervalMillis(intervalMilliseconds);
-        var precisionThread = new PrecisionThread((e) =>
-        {
-            PrintEventToConcolse(e);
-            Console.WriteLine("Ticked!");
-            //Thread.Sleep(50);
-            //DelayProvider.Delay(TimeSpan.FromTicks(Convert.ToInt64(7 * TimeSpan.TicksPerMillisecond)), DelayPrecision.Maximum);
-        },
-        interval,
-        DelayPrecision.Maximum);
+    private static readonly TimeSpan Interval = TimeSpan.FromTicks(Convert.ToInt64(IntervalMillis * TimeSpan.TicksPerMillisecond));
 
-        precisionThread.Start();
+    static async Task Main(string[] args)
+    {
+        var scheduler = CreatePrecisionTimer();
+        scheduler.Start();
         Console.ReadKey(true);
-        precisionThread.Dispose();
-        Console.WriteLine("Disposed!");
+        scheduler.Dispose();
+        await scheduler.WaitForExitAsync();
+        Console.WriteLine("Sample finished.");
     }
 
-    private static void RunAsyncDelaySample()
-    {
-        var cts = new CancellationTokenSource();
-        _ = RunAsyncDelaySampleTask(cts.Token);
-        Console.ReadKey();
-        cts.Cancel();
-    }
+    private static IPrecisionLoop CreatePrecisionThread() =>
+        new PrecisionThread(Print,
+        Interval,
+        Precision);
 
-    private static async Task RunAsyncDelaySampleTask(CancellationToken ct)
-    {
-        var interval = CreateIntervalMillis(100);
-        long tickNumber = 0;
-        var sw = Stopwatch.StartNew();
-
-        while (!ct.IsCancellationRequested)
+    private static IPrecisionLoop CreatePrecisionTask() =>
+        new PrecisionTask(async (e, ct) =>
         {
-            sw.Restart();
-            tickNumber++;
-            await DelayProvider.DelayAsync(interval, DelayPrecision.Maximum, ct).ConfigureAwait(false);
-            Console.WriteLine($"Ticked {tickNumber,10} SW: {sw.Elapsed.TotalMilliseconds,16:N4}");
-        }
-        Console.WriteLine("Finished!");
+            await Task.Delay(0, ct).ConfigureAwait(false);
+            Print(e);
+        },
+        Interval,
+        Precision);
+
+    private static IPrecisionLoop CreatePrecisionTimer()
+    {
+        var timer = new PrecisionTimer(Interval, Precision);
+        timer.Ticked += (s, e) => Print(e);
+        return timer;
     }
 
-    private static void PrintEventToConcolse(PrecisionCycleEventArgs e)
+    private static void Print(PrecisionCycleEventArgs e)
     {
         Console.CursorLeft = 0;
         Console.CursorTop = 0;
@@ -70,7 +54,4 @@ internal class Program
                 Natural:      {e.NaturalElapsed.TotalMilliseconds,16:N4} ms.
                 """);
     }
-
-    private static TimeSpan CreateIntervalMillis(double milliseconds) =>
-        TimeSpan.FromTicks(Convert.ToInt64(milliseconds * TimeSpan.TicksPerMillisecond));
 }

@@ -1,42 +1,41 @@
 ﻿namespace Unosquare.Hpet;
 
 /// <summary>
-/// Represents a background <see cref="Thread"/>
-/// which executes cycles on monotonic, precise, and accurate intervals.
-/// Override the <see cref="DoCycleWork(PrecisionCycleEventArgs)"/> to perform work for a single cycle.
-/// Call the <see cref="PrecisionLoop.Start()"/> method to begin executing cycles.
-/// Call the <see cref="PrecisionLoop.Dispose()"/> method to request the background worker to stop executing cycles.
-/// Override the <see cref="OnWorkerFinished(Exception?)"/> to get notified when no more cycles will be executed.
+/// Provides an alternative implementation of the <see cref="PrecisionThread"/> class
+/// that uses <see cref="Task"/> infrastructure for asynchronous operations.
 /// </summary>
-public abstract class PrecisionThreadBase : PrecisionLoop
+public class PrecisionTask : PrecisionLoop
 {
     private readonly TaskCompletionSource WorkerExitTaskSource;
+    private readonly Func<PrecisionCycleEventArgs, CancellationToken, ValueTask> CycleAction;
 
     /// <summary>
-    /// Creates a new instance of the <see cref="PrecisionThreadBase"/> class.
+    /// Creates a new instance of the <see cref="PrecisionTask"/> class.
     /// </summary>
-    /// <param name="interval">The desired cycle execution interval. Must be a positive value.</param>
-    /// <param name="precisionOption">The delay precision strategy to employ.</param>
-    protected PrecisionThreadBase(TimeSpan interval, DelayPrecision precisionOption)
+    /// <param name="cycleAction">The action that returns an awaitable task.</param>
+    /// <param name="interval">The configured interval.</param>
+    /// <param name="precisionOption">The precision strategy.</param>
+    public PrecisionTask(Func<PrecisionCycleEventArgs, CancellationToken, ValueTask> cycleAction, TimeSpan interval, DelayPrecision precisionOption)
         : base(interval, precisionOption)
     {
         WorkerExitTaskSource = new(this);
-
-        WorkerThread = new(WorkerThreadLoop)
-        {
-            IsBackground = true
-        };
+        CycleAction = cycleAction;
     }
 
     /// <summary>
-    /// Provides access to the underlying background thread.
+    /// Provides access to the underlying <see cref="Task"/>.
     /// </summary>
-    protected Thread WorkerThread { get; }
+    protected Task? WorkerTask { get; private set; }
 
-    /// <inheritdoc />
+    /// <inheridoc />
     protected override void StartWorker()
     {
-        WorkerThread.Start();
+        WorkerTask = Task.Factory.StartNew(
+                    RunWorkerLoopAsync,
+                    this,
+                    CancellationToken.None,
+                    TaskCreationOptions.DenyChildAttach | TaskCreationOptions.LongRunning,
+                    TaskScheduler.Default);
     }
 
     /// <summary>
@@ -44,41 +43,38 @@ public abstract class PrecisionThreadBase : PrecisionLoop
     /// Ideally, you should ensure the execution of the cycle does not take longer than <see cref="PrecisionLoop.Interval"/>.
     /// </summary>
     /// <param name="cycleEvent">Provides timing information on the current cycle.</param>
-    protected abstract void DoCycleWork(PrecisionCycleEventArgs cycleEvent);
+    /// <param name="ct">The cancellation token.</param>
+    protected virtual ValueTask DoCycleWorkAsync(PrecisionCycleEventArgs cycleEvent, CancellationToken ct) => CycleAction(cycleEvent, ct);
 
     /// <summary>
-    /// Called when <see cref="DoCycleWork(PrecisionCycleEventArgs)"/> throws an unhandled exception.
+    /// Called when <see cref="DoCycleWorkAsync"/> throws an unhandled exception.
     /// Override this method to handle the exception and decide whether or not execution can continue.
     /// By default this method will simply ignore the exception and signal the worker thread to exit.
     /// </summary>
     /// <param name="ex">The unhandled exception that was thrown.</param>
     /// <param name="exitWorker">A value to signal the worker thread to exit the cycle execution loop.</param>
-    protected virtual void OnCycleExeption(Exception ex, out bool exitWorker)
+    protected virtual ValueTask OnCycleExeptionAsync(Exception ex, out bool exitWorker)
     {
         exitWorker = true;
+        return ValueTask.CompletedTask;
     }
 
     /// <summary>
-    /// Called when the worker thread can guarantee no more <see cref="DoCycleWork(PrecisionCycleEventArgs)"/>
+    /// Called when the worker thread can guarantee no more <see cref="DoCycleWorkAsync"/>
     /// methods calls will be made and right before the <see cref="PrecisionLoop.Dispose()"/> method is automatically called.
     /// </summary>
     /// <param name="exitException">When set, contains the exception that caused the worker to exit the cycle execution loop.</param>
-    protected virtual void OnWorkerFinished(Exception? exitException)
+    protected virtual ValueTask OnWorkerFinishedAsync(Exception? exitException)
     {
         if (exitException is not null)
-        {
             WorkerExitTaskSource.TrySetException(exitException);
-            return;
-        }
+        else
+            WorkerExitTaskSource.TrySetResult();
 
-        WorkerExitTaskSource.TrySetResult();
+        return ValueTask.CompletedTask;
     }
 
-    /// <summary>
-    /// Continuously and monotonically calls <see cref="DoCycleWork(PrecisionCycleEventArgs)"/>
-    /// at the specified <see cref="PrecisionLoop.Interval"/>.
-    /// </summary>
-    private void WorkerThreadLoop()
+    private async ValueTask RunWorkerLoopAsync(object? state)
     {
 #pragma warning disable CA1031
         // create a loop state object to keep track of cycles and timing
@@ -93,20 +89,20 @@ public abstract class PrecisionThreadBase : PrecisionLoop
             // Invoke the user action with the current state
             try
             {
-                DoCycleWork(s.Snapshot());
+                await DoCycleWorkAsync(s.Snapshot(), tokenSource.Token).ConfigureAwait(false);
 
                 // Introduce a delay
                 if (!s.HasCycleIntervalElapsed)
                 {
-                    DelayProvider.Delay(
+                    await DelayProvider.DelayAsync(
                         s.PendingCycleTimeSpan,
                         PrecisionOption,
-                        tokenSource.Token);
+                        tokenSource.Token).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
             {
-                OnCycleExeption(ex, out var exitWorker);
+                await OnCycleExeptionAsync(ex, out var exitWorker).ConfigureAwait(false);
                 if (exitWorker)
                 {
                     s.ExitException = ex;
@@ -116,13 +112,13 @@ public abstract class PrecisionThreadBase : PrecisionLoop
             finally
             {
                 s.Update();
-            }
+            }            
         }
 
         // Notify the worker finished and always dispose immediately.
         try
         {
-            OnWorkerFinished(s.ExitException);
+            await OnWorkerFinishedAsync(s.ExitException).ConfigureAwait(false);
         }
         finally
         {

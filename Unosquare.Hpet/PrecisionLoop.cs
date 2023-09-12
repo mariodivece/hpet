@@ -8,7 +8,7 @@ namespace Unosquare.Hpet;
 /// on its own, and therefore it is not recommended that you inherit
 /// from it unless a highly customized cycle scheduler implementation is required.
 /// </summary>
-public abstract class PrecisionLoop : IDisposable
+public abstract class PrecisionLoop : IPrecisionLoop
 {
     private readonly object SyncLock = new();
     private long m_IsDisposed;
@@ -27,9 +27,7 @@ public abstract class PrecisionLoop : IDisposable
         PrecisionOption = precisionOption;
     }
 
-    /// <summary>
-    /// Gets the requested interval at which cycles are to be monotonically executed.
-    /// </summary>
+    /// <inheridoc />
     public TimeSpan Interval { get; }
 
     /// <summary>
@@ -44,10 +42,7 @@ public abstract class PrecisionLoop : IDisposable
     protected bool IsCancellationRequested => Interlocked.Read(ref m_IsDisposed) > 0 ||
         (TokenSourceReference is not null && TokenSourceReference.TryGetTarget(out var tokenSource) && tokenSource.IsCancellationRequested);
 
-    /// <summary>
-    /// Starts the worker loop and begins executing cycles.
-    /// </summary>
-    /// <exception cref="ObjectDisposedException">Thrown when <see cref="Dispose()"/> has been called before.</exception>
+    /// <inheritdoc />
     public void Start()
     {
         if (IsCancellationRequested)
@@ -130,4 +125,7 @@ public abstract class PrecisionLoop : IDisposable
         Dispose(alsoManaged: true);
         GC.SuppressFinalize(this);
     }
+
+    /// <inheritdoc />
+    public abstract Task WaitForExitAsync();
 }
