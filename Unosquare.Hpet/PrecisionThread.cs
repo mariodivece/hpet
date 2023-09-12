@@ -1,11 +1,11 @@
 ﻿namespace Unosquare.Hpet;
 
-public class PrecisionThread : PrecisionThreadBase
+public sealed class PrecisionThread : PrecisionThreadBase
 {
-    private readonly Action<PrecisionTickEventArgs> CycleAction;
+    private readonly Action<PrecisionCycleEventArgs>? CycleAction;
     private readonly TaskCompletionSource WorkerExitTaskSource;
 
-    public PrecisionThread(Action<PrecisionTickEventArgs> cycleAction, TimeSpan interval, DelayPrecision precisionOption = DelayPrecision.Maximum)
+    public PrecisionThread(Action<PrecisionCycleEventArgs> cycleAction, TimeSpan interval, DelayPrecision precisionOption = DelayPrecision.Default)
         : base(interval, precisionOption)
     {
         CycleAction = cycleAction;
@@ -13,9 +13,9 @@ public class PrecisionThread : PrecisionThreadBase
     }
 
     /// <inheridoc />
-    protected override void RunWorkerCycle(PrecisionTickEventArgs tickEvent)
+    protected override void DoCycleWork(PrecisionCycleEventArgs cycleEvent)
     {
-        CycleAction.Invoke(tickEvent);
+        CycleAction?.Invoke(cycleEvent);
     }
 
     /// <inheridoc />
@@ -30,5 +30,5 @@ public class PrecisionThread : PrecisionThreadBase
         WorkerExitTaskSource.TrySetResult();
     }
 
-    public Task WaitForFinishedAsync() => WorkerExitTaskSource.Task;
+    public Task WaitForExitAsync() => WorkerExitTaskSource.Task;
 }

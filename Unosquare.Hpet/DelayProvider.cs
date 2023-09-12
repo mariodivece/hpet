@@ -1,4 +1,6 @@
-﻿using System.ComponentModel;
+﻿#pragma warning disable CA1810 // Initialize reference type static fields inline
+
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -25,7 +27,7 @@ public sealed class DelayProvider
     private volatile uint TimerId;
     private object? EventSignal;
     private CancellationToken TimerCancellationToken = CancellationToken.None;
-    
+
     /// <summary>
     /// Initializes static fields for the <see cref="DelayProvider"/> utility class.
     /// </summary>
@@ -59,7 +61,7 @@ public sealed class DelayProvider
     /// <param name="precision">The delay precision option.</param>
     /// <param name="ct">The optional cancellation token.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Delay(TimeSpan delay, DelayPrecision precision = DelayPrecision.Maximum, CancellationToken ct = default)
+    public static void Delay(TimeSpan delay, DelayPrecision precision = DelayPrecision.Default, CancellationToken ct = default)
     {
         var startTimestamp = Stopwatch.GetTimestamp();
         using var mre = new ManualResetEventSlim(false);
@@ -80,7 +82,7 @@ public sealed class DelayProvider
     /// /// <param name="precision">The delay precision option.</param>
     /// <param name="ct">The optional cancellation token.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Task DelayAsync(TimeSpan delay, DelayPrecision precision = DelayPrecision.Maximum, CancellationToken ct = default)
+    public static Task DelayAsync(TimeSpan delay, DelayPrecision precision = DelayPrecision.Default, CancellationToken ct = default)
     {
         var startTimestamp = Stopwatch.GetTimestamp();
         var p = new DelayProvider(startTimestamp, delay, precision);
@@ -169,4 +171,4 @@ public sealed class DelayProvider
         }
     }
 }
-
+#pragma warning restore CA1810 // Initialize reference type static fields inline

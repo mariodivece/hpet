@@ -8,6 +8,7 @@ internal class Program
     {
         RunPrecisionThreadSample(10);
         //RunAsyncDelaySample();
+        
     }
 
     private static void RunPrecisionThreadSample(double intervalMilliseconds)
@@ -53,14 +54,14 @@ internal class Program
         Console.WriteLine("Finished!");
     }
 
-    private static void PrintEventToConcolse(PrecisionTickEventArgs e)
+    private static void PrintEventToConcolse(PrecisionCycleEventArgs e)
     {
         Console.CursorLeft = 0;
         Console.CursorTop = 0;
 
         Console.WriteLine($"""
                 Period:       {e.Interval.TotalMilliseconds,16:N4} ms.
-                Number:       {e.TickEventNumber,16}
+                Number:       {e.EventNumber,16}
                 Elapsed:      {e.IntervalElapsed.TotalMilliseconds,16:N4} ms.
                 Average:      {e.IntervalAverage.TotalMilliseconds,16:N4} ms.
                 Jitter:       {e.IntervalJitter.TotalMilliseconds,16:N4} ms.

@@ -1,15 +1,15 @@
 ﻿namespace Unosquare.Hpet;
 
 /// <summary>
-/// Represents data associated with the event arguments of a <see cref="PrecisionTimer.Ticked"/> event.
+/// Represents data associated with timing information of a precision loop cycle.
 /// </summary>
-public sealed class PrecisionTickEventArgs : EventArgs
+public sealed class PrecisionCycleEventArgs : EventArgs
 {
     /// <summary>
-    /// Creates a new instance of the <see cref="PrecisionTickEventArgs"/>
+    /// Creates a new instance of the <see cref="PrecisionCycleEventArgs"/>
     /// </summary>
-    internal PrecisionTickEventArgs(
-        long tickEventNumber = default,
+    internal PrecisionCycleEventArgs(
+        long eventNumber = default,
         int missedEventCount = default,
         TimeSpan interval = default,
         TimeSpan intervalElapsed = default,
@@ -19,7 +19,7 @@ public sealed class PrecisionTickEventArgs : EventArgs
         TimeSpan discreteElapsed = default)
         : base()
     {
-        TickEventNumber = tickEventNumber;
+        EventNumber = eventNumber;
         MissedEventCount = missedEventCount;
         Interval = interval;
         IntervalElapsed = intervalElapsed;
@@ -30,10 +30,10 @@ public sealed class PrecisionTickEventArgs : EventArgs
     }
 
     /// <summary>
-    /// Gets the incremental tick event number starting from 1.
-    /// Tick numbers may not be consecutive if timer events are missed.
+    /// Gets the incremental event number starting from 1.
+    /// Event numbers may not be consecutive if timer events are missed.
     /// </summary>
-    public long TickEventNumber { get; internal set; }
+    public long EventNumber { get; internal set; }
 
     /// <summary>
     /// The number of timer events that were not fired due to excessive time
@@ -77,6 +77,6 @@ public sealed class PrecisionTickEventArgs : EventArgs
     public TimeSpan DiscreteElapsed { get; internal set; }
 
 
-    internal PrecisionTickEventArgs Clone() =>
-        new(TickEventNumber, MissedEventCount, Interval, IntervalElapsed, IntervalAverage, IntervalJitter, NaturalElapsed, DiscreteElapsed);
+    internal PrecisionCycleEventArgs Clone() =>
+        new(EventNumber, MissedEventCount, Interval, IntervalElapsed, IntervalAverage, IntervalJitter, NaturalElapsed, DiscreteElapsed);
 }

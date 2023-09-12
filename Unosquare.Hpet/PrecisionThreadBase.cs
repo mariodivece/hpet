@@ -1,19 +1,15 @@
-﻿using System.Diagnostics;
-using System.Runtime.CompilerServices;
-
-namespace Unosquare.Hpet;
+﻿namespace Unosquare.Hpet;
 
 /// <summary>
 /// Represents a background <see cref="Thread"/>
 /// which executes cycles on monotonic, precise, and accurate intervals.
-/// Override the <see cref="RunWorkerCycle(PrecisionTickEventArgs)"/> to perform work for a single cycle.
-/// Call the <see cref="Start"/> method to begin executing cycles.
+/// Override the <see cref="DoCycleWork(PrecisionCycleEventArgs)"/> to perform work for a single cycle.
+/// Call the <see cref="Start()"/> method to begin executing cycles.
 /// Call the <see cref="Dispose()"/> method to request the background worker to stop executing cycles.
 /// Override the <see cref="OnWorkerFinished(Exception?)"/> to get notified when no more cycles will be executed.
 /// </summary>
-public abstract class PrecisionThreadBase : PrecisionLoopBase
+public abstract class PrecisionThreadBase : PrecisionLoop
 {
-
     /// <summary>
     /// Creates a new instance of the <see cref="PrecisionThreadBase"/> class.
     /// </summary>
@@ -34,35 +30,32 @@ public abstract class PrecisionThreadBase : PrecisionLoopBase
     protected Thread WorkerThread { get; }
 
     /// <inheritdoc />
-    public override void Start()
+    protected override void StartWorker()
     {
-        if (IsDisposeRequested)
-            throw new ObjectDisposedException(nameof(PrecisionThreadBase));
-
         WorkerThread.Start();
     }
 
     /// <summary>
     /// Implement this method to perform the actions needed for a single cycle execution.
-    /// Ideally, you should ensure the execution of the cycle does not take longer than <see cref="PrecisionLoopBase.Interval"/>.
+    /// Ideally, you should ensure the execution of the cycle does not take longer than <see cref="PrecisionLoop.Interval"/>.
     /// </summary>
-    /// <param name="tickEvent">Provides timing information on the current cycle.</param>
-    protected abstract void RunWorkerCycle(PrecisionTickEventArgs tickEvent);
+    /// <param name="cycleEvent">Provides timing information on the current cycle.</param>
+    protected abstract void DoCycleWork(PrecisionCycleEventArgs cycleEvent);
 
     /// <summary>
-    /// Called when <see cref="RunWorkerCycle(PrecisionTickEventArgs)"/> throws an unhandled exception.
+    /// Called when <see cref="DoCycleWork(PrecisionCycleEventArgs)"/> throws an unhandled exception.
     /// Override this method to handle the exception and decide whether or not execution can continue.
     /// By default this method will simply ignore the exception and signal the worker thread to exit.
     /// </summary>
     /// <param name="ex">The unhandled exception that was thrown.</param>
     /// <param name="exitWorker">A value to signal the worker thread to exit the cycle execution loop.</param>
-    protected virtual void OnWorkerExeption(Exception ex, out bool exitWorker)
+    protected virtual void OnCycleExeption(Exception ex, out bool exitWorker)
     {
         exitWorker = true;
     }
 
     /// <summary>
-    /// Called when the worker thread can guarantee no more <see cref="RunWorkerCycle(PrecisionTickEventArgs)"/>
+    /// Called when the worker thread can guarantee no more <see cref="DoCycleWork(PrecisionCycleEventArgs)"/>
     /// methods calls will be made and right before the <see cref="Dispose()"/> method is automatically called.
     /// </summary>
     /// <param name="exitException">When set, contains the exception that caused the worker to exit the cycle execution loop.</param>
@@ -72,7 +65,7 @@ public abstract class PrecisionThreadBase : PrecisionLoopBase
     }
 
     /// <summary>
-    /// Continuously and monotonically calls <see cref="RunWorkerCycle(PrecisionTickEventArgs)"/>
+    /// Continuously and monotonically calls <see cref="DoCycleWork(PrecisionCycleEventArgs)"/>
     /// at the specified <see cref="Interval"/>.
     /// </summary>
     private void WorkerThreadLoop()
@@ -84,16 +77,16 @@ public abstract class PrecisionThreadBase : PrecisionLoopBase
         // from a different method.
         using var tokenSource = CaptureTokenSource();
 
-        while (!IsDisposeRequested)
+        while (!IsCancellationRequested)
         {
             // Invoke the user action with the current state
             try
             {
-                RunWorkerCycle(s.Snapshot());
+                DoCycleWork(s.Snapshot());
             }
             catch (Exception ex)
             {
-                OnWorkerExeption(ex, out var exitWorker);
+                OnCycleExeption(ex, out var exitWorker);
                 if (exitWorker)
                 {
                     s.ExitException = ex;
@@ -101,7 +94,6 @@ public abstract class PrecisionThreadBase : PrecisionLoopBase
                 }
             }
 
-            // Capture the cancellation token with thread safety
             // Introduce a delay
             if (!s.HasCycleIntervalElapsed)
             {

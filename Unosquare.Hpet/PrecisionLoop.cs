@@ -1,17 +1,27 @@
-﻿using System.Diagnostics;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 
 namespace Unosquare.Hpet;
 
-public abstract class PrecisionLoopBase : IDisposable
+/// <summary>
+/// Represents a base class for implementing Precision Timers,
+/// Precision Threads or Precision Tasks.
+/// </summary>
+public abstract class PrecisionLoop : IDisposable
 {
     private readonly object SyncLock = new();
     private long m_IsDisposed;
+    private long m_StartCallCount;
+
     private WeakReference<CancellationTokenSource>? TokenSourceReference;
 
-    protected PrecisionLoopBase(TimeSpan interval, DelayPrecision precisionOption)
+    /// <summary>
+    /// Creates a new instance of the <see cref="PrecisionLoop"/> class.
+    /// </summary>
+    /// <param name="interval">The desired interval. The minimum is 1 <see cref="TimeSpan.Ticks"/>.</param>
+    /// <param name="precisionOption">The desired precision strategy.</param>
+    protected PrecisionLoop(TimeSpan interval, DelayPrecision precisionOption)
     {
-        Interval = interval.Ticks <= 0 ? TimeSpan.FromMilliseconds(1) : interval;
+        Interval = interval.Ticks <= 0 ? TimeSpan.FromTicks(1) : interval;
         PrecisionOption = precisionOption;
     }
 
@@ -29,13 +39,28 @@ public abstract class PrecisionLoopBase : IDisposable
     /// Gets a value indicating whether the <see cref="Dispose()"/> method has been called
     /// and the running worker loop is about to exit or already has.
     /// </summary>
-    protected bool IsDisposeRequested => Interlocked.Read(ref m_IsDisposed) > 0;
+    protected bool IsCancellationRequested => Interlocked.Read(ref m_IsDisposed) > 0 ||
+        (TokenSourceReference is not null && TokenSourceReference.TryGetTarget(out var tokenSource) && tokenSource.IsCancellationRequested);
 
     /// <summary>
-    /// Starts the worker thread loop and begins executing cycles.
+    /// Starts the worker loop and begins executing cycles.
     /// </summary>
     /// <exception cref="ObjectDisposedException">Thrown when <see cref="Dispose()"/> has been called before.</exception>
-    public abstract void Start();
+    public void Start()
+    {
+        if (IsCancellationRequested)
+            throw new ObjectDisposedException(nameof(PrecisionThreadBase));
+
+        if (Interlocked.Increment(ref m_StartCallCount) > 1)
+            throw new InvalidOperationException($"The method '{nameof(Start)}' has already been called.");
+
+        StartWorker();
+    }
+
+    /// <summary>
+    /// Implements the logic to start the worker loop. Must be a non-blocking call.
+    /// </summary>
+    protected abstract void StartWorker();
 
     /// <summary>
     /// Initializes a <see cref="CancellationTokenSource"/> and saves a reference to it
@@ -49,6 +74,10 @@ public abstract class PrecisionLoopBase : IDisposable
         return tokenSource;
     }
 
+    /// <summary>
+    /// Marks the internal <see cref="CancellationTokenSource"/> as cancelled
+    /// and removes it from the internal <see cref="TokenSourceReference"/>.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void SignalCancellation()
     {

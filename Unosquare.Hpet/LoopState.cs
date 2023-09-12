@@ -3,15 +3,19 @@ using System.Runtime.CompilerServices;
 
 namespace Unosquare.Hpet;
 
+/// <summary>
+/// Represents a structure that updates a <see cref="PrecisionLoop"/> worker
+/// timing information and generates a <see cref="PrecisionCycleEventArgs"/>
+/// </summary>
 internal record struct LoopState
 {
     private readonly Queue<long> EventDurations;
     private readonly int EventDurationsCapacity;
     private readonly int IntervalSampleThreshold;
-    private readonly PrecisionLoopBase Loop;
-    private readonly PrecisionTickEventArgs EventState;
+    private readonly PrecisionLoop Loop;
+    private readonly PrecisionCycleEventArgs EventState;
 
-    public LoopState(PrecisionLoopBase loop)
+    public LoopState(PrecisionLoop loop)
     {
         // capture the initial timestamp
         CurrentTickTimestamp = GetTimestamp();
@@ -20,7 +24,7 @@ internal record struct LoopState
 
         // Initialize state variables
         Interval = Loop.Interval;
-        EventState = new(interval: Interval, tickEventNumber: 1, intervalElapsed: TimeSpan.Zero);
+        EventState = new(interval: Interval, eventNumber: 1, intervalElapsed: TimeSpan.Zero);
         NextDelay = Interval;
 
         // Compute event duration sample count and instantiate the queue.
@@ -61,7 +65,7 @@ internal record struct LoopState
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static TimeSpan GetElapsedTime(long startingTimestamp) => Stopwatch.GetElapsedTime(startingTimestamp);
 
-    public PrecisionTickEventArgs Snapshot() => EventState.Clone();
+    public PrecisionCycleEventArgs Snapshot() => EventState.Clone();
 
     public void Update()
     {
@@ -86,7 +90,7 @@ internal record struct LoopState
         // Add the interval elapsed to the discrete elapsed
         EventState.DiscreteElapsed = TimeSpan.FromTicks(EventState.DiscreteElapsed.Ticks + IntervalElapsed.Ticks);
 
-        if (EventState.TickEventNumber <= 1)
+        if (EventState.EventNumber <= 1)
         {
             // on the first tick, start counting the natural time elapsed
             NaturalStartTimestamp = PreviousTickTimestamp;
@@ -133,7 +137,7 @@ internal record struct LoopState
             EventState.MissedEventCount = 0;
         }
 
-        EventState.TickEventNumber += (1 + EventState.MissedEventCount);
+        EventState.EventNumber += (1 + EventState.MissedEventCount);
     }
 
 }
