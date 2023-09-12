@@ -5,28 +5,29 @@ namespace Unosquare.Hpet;
 
 internal record struct LoopState
 {
-    private const int IntervalSampleThreshold = 10;
-
     private readonly Queue<long> EventDurations;
     private readonly int EventDurationsCapacity;
+    private readonly int IntervalSampleThreshold;
     private readonly PrecisionLoopBase Loop;
+    private readonly PrecisionTickEventArgs EventState;
 
     public LoopState(PrecisionLoopBase loop)
     {
-        Loop = loop;
+        // capture the initial timestamp
+        CurrentTickTimestamp = GetTimestamp();
 
-        // Compute event duration sample count and instantiate the queue.
-        EventDurationsCapacity = Convert.ToInt32(Math.Max(IntervalSampleThreshold, 1d / Loop.Interval.TotalSeconds));
-        EventDurations = new Queue<long>(EventDurationsCapacity);
+        Loop = loop;
 
         // Initialize state variables
         Interval = Loop.Interval;
-        EventState = new(interval: Loop.Interval, tickEventNumber: 1, intervalElapsed: TimeSpan.Zero);
-        NextDelay = Loop.Interval;
-        CurrentTickTimestamp = GetTimestamp();
-    }
+        EventState = new(interval: Interval, tickEventNumber: 1, intervalElapsed: TimeSpan.Zero);
+        NextDelay = Interval;
 
-    private readonly PrecisionTickEventArgs EventState;
+        // Compute event duration sample count and instantiate the queue.
+        EventDurationsCapacity = Convert.ToInt32(Math.Max(IntervalSampleThreshold, 1d / Interval.TotalSeconds));
+        EventDurations = new Queue<long>(EventDurationsCapacity);
+        IntervalSampleThreshold = Math.Max(2, EventDurationsCapacity / 2);
+    }
 
     public readonly bool HasCycleIntervalElapsed =>
         GetElapsedTime(CurrentTickTimestamp).Ticks >= NextDelay.Ticks;
@@ -64,25 +65,26 @@ internal record struct LoopState
 
     public void Update()
     {
-        Interval = Loop.Interval;
-        EventState.Interval = Interval;
-
         // start measuring the time interval which includes updating the state for the next tick event
         // and computing event statistics for next cycle.
         PreviousTickTimestamp = CurrentTickTimestamp;
         IntervalElapsed = CurrentTickTimestamp == default ? TimeSpan.Zero : GetElapsedTime(CurrentTickTimestamp);
         CurrentTickTimestamp = GetTimestamp();
 
-        // Compute an initial estimated delay for the next cycle
-        NextDelay = TimeSpan.FromTicks(Interval.Ticks - (IntervalElapsed.Ticks - NextDelay.Ticks));
+        // Cature any updates to the interval from the parent loop.
+        Interval = Loop.Interval;
+        EventState.Interval = Interval;
 
         // compute actual interval elapsed time taking into account drifting due to addition of
         // discrete events not adding up to the natural time elapsed
         NaturalDriftOffset = TimeSpan.FromTicks((EventState.NaturalElapsed.Ticks - EventState.DiscreteElapsed.Ticks) % Interval.Ticks);
-        EventState.IntervalElapsed = TimeSpan.FromTicks(IntervalElapsed.Ticks + NaturalDriftOffset.Ticks);
+        IntervalElapsed = TimeSpan.FromTicks(IntervalElapsed.Ticks + NaturalDriftOffset.Ticks);
+
+        // Compute an initial estimated delay for the next cycle
+        NextDelay = TimeSpan.FromTicks(Interval.Ticks - (IntervalElapsed.Ticks - NextDelay.Ticks));
 
         // Add the interval elapsed to the discrete elapsed
-        EventState.DiscreteElapsed = TimeSpan.FromTicks(EventState.DiscreteElapsed.Ticks + EventState.IntervalElapsed.Ticks);
+        EventState.DiscreteElapsed = TimeSpan.FromTicks(EventState.DiscreteElapsed.Ticks + IntervalElapsed.Ticks);
 
         if (EventState.TickEventNumber <= 1)
         {
@@ -101,7 +103,8 @@ internal record struct LoopState
             _ = EventDurations.Dequeue();
 
         // Push a sample to the analysis set.
-        EventDurations.Enqueue(EventState.IntervalElapsed.Ticks);
+        EventState.IntervalElapsed = IntervalElapsed;
+        EventDurations.Enqueue(IntervalElapsed.Ticks);
 
         // Compute the average.
         EventState.IntervalAverage = TimeSpan.FromTicks(
@@ -123,7 +126,7 @@ internal record struct LoopState
         if (NextDelay.Ticks <= 0)
         {
             EventState.MissedEventCount = 1 + Convert.ToInt32(-NextDelay.Ticks / Interval.Ticks);
-            NextDelay = TimeSpan.FromTicks(-NextDelay.Ticks % Interval.Ticks);
+            NextDelay = Interval;
         }
         else
         {

@@ -17,7 +17,11 @@ internal class Program
         {
             PrintEventToConcolse(e);
             Console.WriteLine("Ticked!");
-        }, interval);
+            //Thread.Sleep(50);
+            //DelayProvider.Delay(TimeSpan.FromTicks(Convert.ToInt64(7 * TimeSpan.TicksPerMillisecond)), DelayPrecision.Maximum);
+        },
+        interval,
+        DelayPrecision.Maximum);
 
         precisionThread.Start();
         Console.ReadKey(true);

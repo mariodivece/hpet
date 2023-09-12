@@ -77,7 +77,7 @@ public abstract class PrecisionThreadBase : PrecisionLoopBase
     /// </summary>
     private void WorkerThreadLoop()
     {
-        // create a loop state object to keep track of cycles
+        // create a loop state object to keep track of cycles and timing
         var s = new LoopState(this);
 
         // Cature a reference to the CTS so that it can be signalled
