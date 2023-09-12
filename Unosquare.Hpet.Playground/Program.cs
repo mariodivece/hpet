@@ -4,14 +4,18 @@ namespace Unosquare.Hpet.Playground;
 
 internal class Program
 {
+    // Sample configuration
     private const DelayPrecision Precision = DelayPrecision.Maximum;
     private const double IntervalMillis = 10;
+    private const double RuntimeSeconds = -1; // Set to -1 for no limit
 
+    // Initialization of variables
+    private static readonly TimeSpan Runtime = TimeSpan.FromSeconds(RuntimeSeconds);
     private static readonly TimeSpan Interval = TimeSpan.FromTicks(Convert.ToInt64(IntervalMillis * TimeSpan.TicksPerMillisecond));
 
     static async Task Main(string[] args)
     {
-        var scheduler = CreatePrecisionTask();
+        var scheduler = CreatePrecisionThread();
         scheduler.Start();
         Console.ReadKey(true);
         scheduler.Dispose();
@@ -20,7 +24,13 @@ internal class Program
     }
 
     private static IPrecisionLoop CreatePrecisionThread() =>
-        new PrecisionThread(Print,
+        new PrecisionThread((e) =>
+        {
+            Print(e);
+
+            if (Runtime.Ticks > 0 && e.NaturalElapsed >= Runtime)
+                e.IsStopRequested = true;
+        },
         Interval,
         Precision);
 
@@ -32,7 +42,7 @@ internal class Program
 
             Print(e);
 
-            if (e.NaturalElapsed.TotalSeconds >= 5)
+            if (Runtime.Ticks > 0 && e.NaturalElapsed >= Runtime)
                 e.IsStopRequested = true;
         },
         Interval,
@@ -41,7 +51,14 @@ internal class Program
     private static IPrecisionLoop CreatePrecisionTimer()
     {
         var timer = new PrecisionTimer(Interval, Precision);
-        timer.Ticked += (s, e) => Print(e);
+        timer.Ticked += (s, e) =>
+        {
+            Print(e);
+
+            if (Runtime.Ticks > 0 && e.NaturalElapsed >= Runtime)
+                e.IsStopRequested = true;
+        };
+
         return timer;
     }
 
