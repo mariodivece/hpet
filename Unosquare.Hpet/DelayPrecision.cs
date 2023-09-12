@@ -17,6 +17,18 @@ public enum DelayPrecision
     Default,
 
     /// <summary>
+    /// Represents a medium precision level with slightly increased CPU
+    /// usage and slightly reduced jittering.
+    /// </summary>
+    Medium,
+
+    /// <summary>
+    /// Represents a high precision level with increased CPU usage and
+    /// reduced jittering.
+    /// </summary>
+    High,
+
+    /// <summary>
     /// Represents the maximum possible precision that the system can handle
     /// at the expense of slightly increased CPU usage because of spinning and
     /// busy waits that attempt to avoid any kind of context switching for

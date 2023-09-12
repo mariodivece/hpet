@@ -2,7 +2,7 @@
 
 internal class Program
 {
-    private const DelayPrecision Precision = DelayPrecision.Maximum;
+    private const DelayPrecision Precision = DelayPrecision.High;
     private const double IntervalMillis = 10;
 
     private static readonly TimeSpan Interval = TimeSpan.FromTicks(Convert.ToInt64(IntervalMillis * TimeSpan.TicksPerMillisecond));

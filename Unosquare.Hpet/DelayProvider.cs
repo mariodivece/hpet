@@ -16,7 +16,9 @@ namespace Unosquare.Hpet;
 /// </summary>
 public sealed class DelayProvider
 {
-    private static readonly TimeSpan TightLoopThreshold;
+    private static uint MinimumSystemPeriodMillis;
+
+    private readonly TimeSpan TightLoopThreshold;
 
     private readonly TimeSpan RequestedDelay;
     private readonly WinMMTimerCallback TimerCallback;
@@ -35,8 +37,7 @@ public sealed class DelayProvider
     {
         var timerCaps = default(TimeCaps);
         NativeMethods.TimeGetDevCaps(ref timerCaps, Constants.SizeOfTimeCaps);
-        var minimumPeriodMillis = Math.Max(1, timerCaps.ResolutionMinPeriod);
-        TightLoopThreshold = TimeSpan.FromTicks(Convert.ToInt64(TimeSpan.TicksPerMillisecond * minimumPeriodMillis * 2));
+        MinimumSystemPeriodMillis = Math.Max(1, timerCaps.ResolutionMinPeriod);
     }
 
     /// <summary>
@@ -48,6 +49,16 @@ public sealed class DelayProvider
     private DelayProvider(long startTimestamp, TimeSpan delay, DelayPrecision precisionOption)
     {
         StartTimestamp = startTimestamp;
+        var tightLoopFactor = precisionOption switch
+        {
+            DelayPrecision.Default => 0d,
+            DelayPrecision.Medium => 0.75d,
+            DelayPrecision.High => 1.5d,
+            DelayPrecision.Maximum => 2d,
+            _ => 0d
+        };
+
+        TightLoopThreshold = TimeSpan.FromTicks(Convert.ToInt64(TimeSpan.TicksPerMillisecond * MinimumSystemPeriodMillis * tightLoopFactor));
         RequestedDelay = delay;
         TimerCallback = new(HandleTimerCallback);
         PrecisionOption = precisionOption;
@@ -140,7 +151,7 @@ public sealed class DelayProvider
         }
 
         // Tight loop for sub-millisecond delay precision.
-        if (PrecisionOption == DelayPrecision.Maximum && 
+        if (TightLoopThreshold.Ticks > 0 && 
             RequestedDelay.Ticks - Stopwatch.GetElapsedTime(StartTimestamp).Ticks <= TightLoopThreshold.Ticks)
         {
             var spinner = default(SpinWait);
