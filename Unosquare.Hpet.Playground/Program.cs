@@ -1,4 +1,6 @@
-﻿namespace Unosquare.Hpet.Playground;
+﻿using Unosquare.Hpet.Infrastructure;
+
+namespace Unosquare.Hpet.Playground;
 
 internal class Program
 {
@@ -9,9 +11,7 @@ internal class Program
 
     static async Task Main(string[] args)
     {
-        
-        // Unosquare.Hpet.PrecisionLoop
-        var scheduler = CreatePrecisionTimer();
+        var scheduler = CreatePrecisionTask();
         scheduler.Start();
         Console.ReadKey(true);
         scheduler.Dispose();
@@ -27,8 +27,13 @@ internal class Program
     private static IPrecisionLoop CreatePrecisionTask() =>
         new PrecisionTask(async (e, ct) =>
         {
-            await Task.Delay(0, ct).ConfigureAwait(false);
+            if (!ct.IsCancellationRequested)
+                await Task.Delay(0).ConfigureAwait(false);
+
             Print(e);
+
+            if (e.NaturalElapsed.TotalSeconds >= 5)
+                e.IsStopRequested = true;
         },
         Interval,
         Precision);
@@ -51,7 +56,8 @@ internal class Program
                 Elapsed:      {e.IntervalElapsed.TotalMilliseconds,16:N4} ms.
                 Average:      {e.IntervalAverage.TotalMilliseconds,16:N4} ms.
                 Jitter:       {e.IntervalJitter.TotalMilliseconds,16:N4} ms.
-                Skipped:      {e.MissedEventCount,16} cycles
+                Missed :      {e.MissedEventCount,16} cycles
+                Sum Missed:   {e.TotalMissedEventCount,16} cycles
                 Discrete:     {e.DiscreteElapsed.TotalMilliseconds,16:N4} ms.
                 Natural:      {e.NaturalElapsed.TotalMilliseconds,16:N4} ms.
                 """);

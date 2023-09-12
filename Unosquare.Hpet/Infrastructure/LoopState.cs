@@ -143,6 +143,7 @@ internal record struct LoopState
         if (NextDelay.Ticks <= 0)
         {
             EventState.MissedEventCount = 1 + Convert.ToInt32(-NextDelay.Ticks / Interval.Ticks);
+            EventState.TotalMissedEventCount += EventState.MissedEventCount;
             NextDelay = Interval;
         }
         else

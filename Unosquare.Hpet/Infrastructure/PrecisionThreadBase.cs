@@ -96,7 +96,11 @@ public abstract class PrecisionThreadBase : PrecisionLoop
             try
             {
                 // Execute cycle work and introduce the delay.
-                DoCycleWork(s.Snapshot());
+                var eventData = s.Snapshot();
+                DoCycleWork(eventData);
+                if (eventData.IsStopRequested)
+                    break;
+
                 s.PendingCycleTimeSpan.Delay(PrecisionOption, tokenSource.Token);
             }
             catch (Exception ex)

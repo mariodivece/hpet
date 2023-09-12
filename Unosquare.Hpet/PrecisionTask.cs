@@ -92,7 +92,12 @@ public class PrecisionTask : PrecisionLoop
             try
             {
                 // Execute cycle work and introduce the delay.
-                await DoCycleWorkAsync(s.Snapshot(), tokenSource.Token).ConfigureAwait(false);
+
+                var eventData = s.Snapshot();
+                await DoCycleWorkAsync(eventData, tokenSource.Token).ConfigureAwait(false);
+                if (eventData.IsStopRequested)
+                    break;
+
                 await s.PendingCycleTimeSpan.DelayAsync(PrecisionOption, tokenSource.Token)
                     .ConfigureAwait(false);
             }

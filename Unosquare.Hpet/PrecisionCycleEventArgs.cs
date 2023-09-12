@@ -15,6 +15,7 @@ public sealed class PrecisionCycleEventArgs : EventArgs
     internal PrecisionCycleEventArgs(
         long eventIndex = default,
         int missedEventCount = default,
+        long totalMissedEventCount = default,
         TimeSpan interval = default,
         TimeSpan intervalElapsed = default,
         TimeSpan intervalAverage = default,
@@ -31,6 +32,7 @@ public sealed class PrecisionCycleEventArgs : EventArgs
         IntervalJitter = intevalJitter;
         NaturalElapsed = naturalElapsed;
         DiscreteElapsed = discreteElapsed;
+        TotalMissedEventCount = totalMissedEventCount;
     }
 
     /// <summary>
@@ -44,6 +46,11 @@ public sealed class PrecisionCycleEventArgs : EventArgs
     /// taken to fire the event internally or synchronously handle the event.
     /// </summary>
     public int MissedEventCount { get; internal set; }
+
+    /// <summary>
+    /// The accumulated missed event count of all cycles combined. 
+    /// </summary>
+    public long TotalMissedEventCount { get; internal set; }
 
     /// <summary>
     /// Gets the configured interval.
@@ -80,7 +87,12 @@ public sealed class PrecisionCycleEventArgs : EventArgs
     /// </summary>
     public TimeSpan DiscreteElapsed { get; internal set; }
 
+    /// <summary>
+    /// Signals the caller of this event that the worker loop should stop executing cycles.
+    /// Setting its value to true will shutdown the loop and no more cycles will be executed.
+    /// </summary>
+    public bool IsStopRequested { get; set; }
 
     internal PrecisionCycleEventArgs Clone() =>
-        new(EventIndex, MissedEventCount, Interval, IntervalElapsed, IntervalAverage, IntervalJitter, NaturalElapsed, DiscreteElapsed);
+        new(EventIndex, MissedEventCount, TotalMissedEventCount, Interval, IntervalElapsed, IntervalAverage, IntervalJitter, NaturalElapsed, DiscreteElapsed);
 }

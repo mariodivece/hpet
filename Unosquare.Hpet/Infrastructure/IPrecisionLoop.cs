@@ -1,4 +1,4 @@
-﻿namespace Unosquare.Hpet;
+﻿namespace Unosquare.Hpet.Infrastructure;
 
 /// <summary>
 /// Defines the members of a precision loop which runs a set of scheduled cycles
@@ -22,6 +22,7 @@ public interface IPrecisionLoop : IDisposable
     /// <summary>
     /// Provides an awaitable task to wait for thread loop termination
     /// and guaranteeing no more cycles will be executed.
+    /// Do not await this method in the same thread where cycle work is performed.
     /// </summary>
     /// <returns>An awaitable task.</returns>
     Task WaitForExitAsync();
