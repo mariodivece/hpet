@@ -9,6 +9,8 @@ internal class Program
 
     static async Task Main(string[] args)
     {
+        
+        // Unosquare.Hpet.PrecisionLoop
         var scheduler = CreatePrecisionTimer();
         scheduler.Start();
         Console.ReadKey(true);

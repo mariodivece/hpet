@@ -1,7 +1,11 @@
-﻿namespace Unosquare.Hpet;
+﻿using Unosquare.Hpet.Infrastructure;
+
+namespace Unosquare.Hpet;
 
 /// <summary>
 /// Represents data associated with timing information of a precision loop cycle.
+/// This class is compatible with <see cref="EventArgs"/> so that it can be used
+/// in event firing and handling.
 /// </summary>
 public sealed class PrecisionCycleEventArgs : EventArgs
 {

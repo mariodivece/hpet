@@ -1,4 +1,6 @@
-﻿namespace Unosquare.Hpet;
+﻿using Unosquare.Hpet.Infrastructure;
+
+namespace Unosquare.Hpet;
 
 /// <summary>
 /// Emulates a monotonic, High Precision Event Timer (HPET) while attempting

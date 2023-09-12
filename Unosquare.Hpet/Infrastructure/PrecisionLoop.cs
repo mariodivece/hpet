@@ -1,10 +1,10 @@
 ﻿using System.Runtime.CompilerServices;
 
-namespace Unosquare.Hpet;
+namespace Unosquare.Hpet.Infrastructure;
 
 /// <summary>
-/// Represents a base class for implementing Precision Timers,
-/// Precision Threads or Precision Tasks. This class does not do anything
+/// Represents a base class for implementing <see cref="PrecisionTimer"/>,
+/// <see cref="PrecisionThread"/> and <see cref="PrecisionTask"/>. This class does not do anything
 /// on its own, and therefore it is not recommended that you inherit
 /// from it unless a highly customized cycle scheduler implementation is required.
 /// </summary>
@@ -40,7 +40,7 @@ public abstract class PrecisionLoop : IPrecisionLoop
     /// and the running worker loop is about to exit or already has.
     /// </summary>
     protected bool IsCancellationRequested => Interlocked.Read(ref m_IsDisposed) > 0 ||
-        (TokenSourceReference is not null && TokenSourceReference.TryGetTarget(out var tokenSource) && tokenSource.IsCancellationRequested);
+        TokenSourceReference is not null && TokenSourceReference.TryGetTarget(out var tokenSource) && tokenSource.IsCancellationRequested;
 
     /// <inheritdoc />
     public void Start()

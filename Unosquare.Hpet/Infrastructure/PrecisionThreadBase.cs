@@ -1,8 +1,10 @@
-﻿namespace Unosquare.Hpet;
+﻿namespace Unosquare.Hpet.Infrastructure;
 
 /// <summary>
 /// Represents a background <see cref="Thread"/>
 /// which executes cycles on monotonic, precise, and accurate intervals.
+/// This class serves as the base implementation for the <see cref="PrecisionThread"/>
+/// and <see cref="PrecisionTimer"/> classes, and it is not meant to be inherited outside this class library.
 /// Override the <see cref="DoCycleWork(PrecisionCycleEventArgs)"/> to perform work for a single cycle.
 /// Call the <see cref="PrecisionLoop.Start()"/> method to begin executing cycles.
 /// Call the <see cref="PrecisionLoop.Dispose()"/> method to request the background worker to stop executing cycles.

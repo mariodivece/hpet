@@ -1,7 +1,8 @@
 ﻿namespace Unosquare.Hpet;
 
 /// <summary>
-/// Defines the members of a precision loop.
+/// Defines the members of a precision loop which runs a set of scheduled cycles
+/// in a monotonic, precise and accurate time intervals.
 /// </summary>
 public interface IPrecisionLoop : IDisposable
 {

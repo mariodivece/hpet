@@ -1,4 +1,6 @@
-﻿namespace Unosquare.Hpet;
+﻿using Unosquare.Hpet.Infrastructure;
+
+namespace Unosquare.Hpet;
 
 /// <summary>
 /// Provides an alternative implementation of the <see cref="PrecisionThread"/> class

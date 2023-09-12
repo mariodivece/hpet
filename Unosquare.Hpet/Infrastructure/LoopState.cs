@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
-namespace Unosquare.Hpet;
+namespace Unosquare.Hpet.Infrastructure;
 
 /// <summary>
 /// Represents a structure that updates a <see cref="PrecisionLoop"/> worker
@@ -45,8 +45,6 @@ internal record struct LoopState
 
     public long NaturalStartTimestamp;
 
-    public TimeSpan DiscreteElapsed;
-
     public TimeSpan IntervalElapsed;
 
     public TimeSpan NaturalDriftOffset;
@@ -79,7 +77,7 @@ internal record struct LoopState
     /// for passing on as arguments to either callbacks or events.
     /// </summary>
     /// <returns>A copy of the internal <see cref="EventState"/></returns>
-    public PrecisionCycleEventArgs Snapshot() => EventState.Clone();
+    public readonly PrecisionCycleEventArgs Snapshot() => EventState.Clone();
 
     /// <summary>
     /// Automatically updates the <see cref="EventState"/> and the internal
@@ -155,6 +153,6 @@ internal record struct LoopState
             EventState.MissedEventCount = 0;
         }
 
-        EventState.EventIndex += (1 + EventState.MissedEventCount);
+        EventState.EventIndex += 1 + EventState.MissedEventCount;
     }
 }

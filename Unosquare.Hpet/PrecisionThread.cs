@@ -1,4 +1,6 @@
-﻿namespace Unosquare.Hpet;
+﻿using Unosquare.Hpet.Infrastructure;
+
+namespace Unosquare.Hpet;
 
 /// <summary>
 /// Represents a basic implementation of a <see cref="PrecisionLoop"/> that
