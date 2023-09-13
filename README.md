@@ -2,7 +2,7 @@
 
 *An approach to High Precision Event Timers in .NET*
 
-![Nuget Package Link](https://img.shields.io/nuget/v/Unosquare.Hpet?link=https%3A%2F%2Fwww.nuget.org%2Fpackages%2FUnosquare.Hpet)
+[![NuGet](https://img.shields.io/nuget/dt/Unosquare.Hpet)](https://www.nuget.org/packages/Unosquare.Hpet)
 
 ---
 
