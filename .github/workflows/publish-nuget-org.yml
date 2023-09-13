@@ -1,0 +1,11 @@
+name: Publish to Nuget.org
+on: workflow_dispatch
+
+jobs:
+  publish-nuget-org:
+    uses: unosquare/swan/.github/workflows/lib-publish-nuget-org.yml@master
+    with:
+      project-name: 'Unosquare.Hpet'
+    secrets:
+      nuget-api-key: ${{ secrets.NUGET_API_KEY }}
+      
