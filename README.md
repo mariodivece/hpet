@@ -1,6 +1,9 @@
 # The HPET Emulator Project
+
 *An approach to High Precision Event Timers in .NET*
+
 ![Nuget](https://img.shields.io/nuget/v/Unosquare.Hpet)
+
 ---
 
 ## Introduction
