@@ -127,6 +127,11 @@ internal record struct LoopState
         EventState.IntervalAverage = TimeSpan.FromTicks(
             Convert.ToInt64(EventDurations.Average()));
 
+        // Compute the frequency
+        EventState.Frequency = EventState.IntervalAverage.Ticks != 0
+            ? Convert.ToDouble(TimeSpan.TicksPerSecond) / EventState.IntervalAverage.Ticks
+            : 0;
+
         // Jitter is the standard deviation.
         var intervalTicks = Interval.Ticks;
         EventState.IntervalJitter = TimeSpan.FromTicks(

@@ -19,6 +19,7 @@ public sealed class PrecisionCycleEventArgs : EventArgs
         TimeSpan interval = default,
         TimeSpan intervalElapsed = default,
         TimeSpan intervalAverage = default,
+        double frequency = default,
         TimeSpan intevalJitter = default,
         TimeSpan naturalElapsed = default,
         TimeSpan discreteElapsed = default)
@@ -29,6 +30,7 @@ public sealed class PrecisionCycleEventArgs : EventArgs
         Interval = interval;
         IntervalElapsed = intervalElapsed;
         IntervalAverage = intervalAverage;
+        Frequency = frequency;
         IntervalJitter = intevalJitter;
         NaturalElapsed = naturalElapsed;
         DiscreteElapsed = discreteElapsed;
@@ -70,6 +72,11 @@ public sealed class PrecisionCycleEventArgs : EventArgs
     public TimeSpan IntervalAverage { get; internal set; }
 
     /// <summary>
+    /// The average times per second that the event is firing.
+    /// </summary>
+    public double Frequency { get; internal set; }
+
+    /// <summary>
     /// Gets the standard deviation from the configured
     /// <see cref="Interval"/> of the last few events.
     /// </summary>
@@ -93,6 +100,15 @@ public sealed class PrecisionCycleEventArgs : EventArgs
     /// </summary>
     public bool IsStopRequested { get; set; }
 
-    internal PrecisionCycleEventArgs Clone() =>
-        new(EventIndex, MissedEventCount, TotalMissedEventCount, Interval, IntervalElapsed, IntervalAverage, IntervalJitter, NaturalElapsed, DiscreteElapsed);
+    internal PrecisionCycleEventArgs Clone() => new(
+        EventIndex,
+        MissedEventCount,
+        TotalMissedEventCount,
+        Interval,
+        IntervalElapsed,
+        IntervalAverage,
+        Frequency,
+        IntervalJitter,
+        NaturalElapsed,
+        DiscreteElapsed);
 }

@@ -5,8 +5,8 @@ namespace Unosquare.Hpet.Playground;
 internal class Program
 {
     // Sample configuration
-    private const DelayPrecision Precision = DelayPrecision.Maximum;
-    private const double IntervalMillis = 10;
+    private const DelayPrecision Precision = DelayPrecision.High;
+    private const double IntervalMillis = 1000d / 75d; // FPS
     private const double RuntimeSeconds = -1; // Set to -1 for no limit
 
     // Initialization of variables
@@ -15,7 +15,8 @@ internal class Program
 
     static async Task Main(string[] args)
     {
-        var scheduler = CreatePrecisionThread();
+        
+        var scheduler = CreatePrecisionTask();
         scheduler.Start();
         Console.ReadKey(true);
         scheduler.Dispose();
@@ -38,7 +39,7 @@ internal class Program
         new PrecisionTask(async (e, ct) =>
         {
             if (!ct.IsCancellationRequested)
-                await Task.Delay(0).ConfigureAwait(false);
+                await Task.Delay(0, CancellationToken.None).ConfigureAwait(false);
 
             Print(e);
 
@@ -72,6 +73,7 @@ internal class Program
                 Number:       {e.EventIndex,16}
                 Elapsed:      {e.IntervalElapsed.TotalMilliseconds,16:N4} ms.
                 Average:      {e.IntervalAverage.TotalMilliseconds,16:N4} ms.
+                Frequency:    {e.Frequency,16:N4} Hz.
                 Jitter:       {e.IntervalJitter.TotalMilliseconds,16:N4} ms.
                 Missed :      {e.MissedEventCount,16} cycles
                 Sum Missed:   {e.TotalMissedEventCount,16} cycles

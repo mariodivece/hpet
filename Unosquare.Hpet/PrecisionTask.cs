@@ -76,7 +76,7 @@ public class PrecisionTask : PrecisionLoop
         return ValueTask.CompletedTask;
     }
 
-    private async ValueTask RunWorkerLoopAsync(object? state)
+    private async Task RunWorkerLoopAsync(object? state)
     {
 #pragma warning disable CA1031
         // create a loop state object to keep track of cycles and timing
