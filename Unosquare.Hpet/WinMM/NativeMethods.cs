@@ -12,4 +12,11 @@ internal static partial class NativeMethods
 
     [LibraryImport(Constants.Library, EntryPoint = "timeGetDevCaps", SetLastError = true)]
     public static partial uint TimeGetDevCaps(ref TimeCaps timeCaps, uint sizeTimeCaps);
+
+
+    [LibraryImport(Constants.Library, EntryPoint = "timeBeginPeriod", SetLastError = true)]
+    public static partial uint TimeBeginPeriod(uint uMilliseconds);
+
+    [LibraryImport(Constants.Library, EntryPoint = "timeEndPeriod", SetLastError = true)]
+    public static partial uint TimeEndPeriod(uint uMilliseconds);
 }

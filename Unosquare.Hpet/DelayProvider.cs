@@ -1,9 +1,7 @@
 ﻿#pragma warning disable CA1810 // Initialize reference type static fields inline
 
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Unosquare.Hpet.WinMM;
 
 namespace Unosquare.Hpet;
@@ -14,21 +12,9 @@ namespace Unosquare.Hpet;
 /// This class is not intended to be inherited or instantiated. Use the static methods
 /// available instead.
 /// </summary>
-public sealed partial class DelayProvider
+public sealed class DelayProvider
 {
     private static readonly uint MinimumSystemPeriodMillis;
-
-    private readonly TimeSpan TightLoopThreshold;
-
-    private readonly TimeSpan RequestedDelay;
-    private readonly WinMMTimerCallback TimerCallback;
-    private readonly long StartTimestamp;
-    private readonly DelayPrecision PrecisionOption;
-
-    private uint UserConext;
-    private volatile uint TimerId;
-    private object? EventSignal;
-    private CancellationToken TimerCancellationToken = CancellationToken.None;
 
     /// <summary>
     /// Initializes static fields for the <see cref="DelayProvider"/> utility class.
@@ -41,15 +27,63 @@ public sealed partial class DelayProvider
     }
 
     /// <summary>
-    /// Creates a new instance of the <see cref="DelayProvider"/> class.
+    /// Blocks execution of the current thread until the specified
+    /// time delay has elapsed.
     /// </summary>
-    /// <param name="startTimestamp">A required reference to a starting <see cref="Stopwatch"/> timestamp.</param>
-    /// <param name="delay">The requested delay expressed as a <see cref="TimeSpan"/></param>
-    /// <param name="precisionOption">The configured delay precision.</param>
-    private DelayProvider(long startTimestamp, TimeSpan delay, DelayPrecision precisionOption)
+    /// <param name="delay">The requested amount of time to block.</param>
+    /// <param name="precision">The delay precision option.</param>
+    /// <param name="ct">The optional cancellation token.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void Delay(TimeSpan delay, DelayPrecision precision = DelayPrecision.Default, CancellationToken ct = default)
     {
-        StartTimestamp = startTimestamp;
-        var tightLoopFactor = precisionOption switch
+        var startTimestamp = Stopwatch.GetTimestamp();
+        var tightLoopThreshold = ComputeTightLoopThreshold(precision);
+
+        try
+        {
+            _ = NativeMethods.TimeBeginPeriod(MinimumSystemPeriodMillis);
+            while (!SleepOne(startTimestamp, delay, tightLoopThreshold, ct))
+            {
+                // keep sleeping
+            }
+        }
+        finally
+        {
+            _ = NativeMethods.TimeEndPeriod(MinimumSystemPeriodMillis);
+        }
+    }
+
+    /// <summary>
+    /// Blocks execution of the current thread until the specified
+    /// time delay has elapsed.
+    /// </summary>
+    /// <param name="delay">The requested amount of time to block.</param>
+    /// /// <param name="precision">The delay precision option.</param>
+    /// <param name="ct">The optional cancellation token.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static async ValueTask DelayAsync(TimeSpan delay, DelayPrecision precision = DelayPrecision.Default, CancellationToken ct = default)
+    {
+        var startTimestamp = Stopwatch.GetTimestamp();
+        var tightLoopThreshold = ComputeTightLoopThreshold(precision);
+
+        try
+        {
+            _ = NativeMethods.TimeBeginPeriod(MinimumSystemPeriodMillis);
+            while (await SleepOneAsync(startTimestamp, delay, tightLoopThreshold, ct).ConfigureAwait(false))
+            {
+                // keep sleeping
+            }
+        }
+        finally
+        {
+            _ = NativeMethods.TimeEndPeriod(MinimumSystemPeriodMillis);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static TimeSpan ComputeTightLoopThreshold(DelayPrecision precision)
+    {
+        var tightLoopFactor = precision switch
         {
             DelayPrecision.Default => 0d,
             DelayPrecision.Medium => 2d / 3d,
@@ -58,83 +92,69 @@ public sealed partial class DelayProvider
             _ => 0d
         };
 
-        TightLoopThreshold = TimeSpan.FromTicks(Convert.ToInt64(TimeSpan.TicksPerMillisecond * MinimumSystemPeriodMillis * tightLoopFactor));
-        RequestedDelay = delay;
-        TimerCallback = new(HandleTimerCallback);
-        PrecisionOption = precisionOption;
+        return TimeSpan.FromTicks(
+            Convert.ToInt64(TimeSpan.TicksPerMillisecond * MinimumSystemPeriodMillis * tightLoopFactor));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void BeginTimerWaitLoop(CancellationToken ct)
-    {
-        TimerCancellationToken = ct;
-        HandleTimerCallback(TimerId, default, ref UserConext, default, default);
-    }
+    private static bool HasElapsed(long startTimestamp, TimeSpan requestedDelay, CancellationToken ct) =>
+        ct.IsCancellationRequested || Stopwatch.GetElapsedTime(startTimestamp).Ticks >= requestedDelay.Ticks;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void SignalTimerDone()
-    {
-        if (EventSignal is ManualResetEventSlim timerDoneEvent)
-            timerDoneEvent.Set();
-        else if (EventSignal is TaskCompletionSource taskCompletionSource)
-            taskCompletionSource.SetResult();
-        else
-            throw new InvalidOperationException($"Unsupported {nameof(EventSignal)}.");
-    }
+    private static bool NeedsTightLoopWait(long startTimestamp, TimeSpan requestedDelay, TimeSpan tightLoopThreshold) =>
+        tightLoopThreshold.Ticks > 0 &&
+        requestedDelay.Ticks - Stopwatch.GetElapsedTime(startTimestamp).Ticks <= tightLoopThreshold.Ticks;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void WaitForTimerSignalDone(CancellationToken ct)
-    {
-        if (EventSignal is not ManualResetEventSlim timerDoneEvent)
-            throw new InvalidOperationException($"'{nameof(EventSignal)}' has to be of type {nameof(ManualResetEventSlim)} in order to wait for it synchronously.");
-
-        while (!timerDoneEvent.Wait(1, CancellationToken.None))
-        {
-            if (ct.IsCancellationRequested)
-                break;
-        }
-    }
-
-    private void HandleTimerCallback(uint id, uint msg, ref uint userCtx, uint rsv1, uint rsv2)
+    private static bool SleepOne(long startTimestamp, TimeSpan requestedDelay, TimeSpan tightLoopThreshold, CancellationToken ct)
     {
         // Check if the time has elpased already or a cancellation was issued.
-        if (Stopwatch.GetElapsedTime(StartTimestamp).Ticks >= RequestedDelay.Ticks ||
-            TimerCancellationToken.IsCancellationRequested)
-        {
-            SignalTimerDone();
-            return;
-        }
+        if (HasElapsed(startTimestamp, requestedDelay, ct))
+            return true;
 
         // Tight loop for sub-millisecond delay precision.
-        if (TightLoopThreshold.Ticks > 0 &&
-            RequestedDelay.Ticks - Stopwatch.GetElapsedTime(StartTimestamp).Ticks <= TightLoopThreshold.Ticks)
+        if (NeedsTightLoopWait(startTimestamp, requestedDelay, tightLoopThreshold))
         {
             var spinner = default(SpinWait);
 
-            while (Stopwatch.GetElapsedTime(StartTimestamp).Ticks < RequestedDelay.Ticks)
+            while (!HasElapsed(startTimestamp, requestedDelay, ct))
             {
                 if (!spinner.NextSpinWillYield)
                     spinner.SpinOnce();
             }
 
-            SignalTimerDone();
-            return;
+            return true;
         }
 
-        // Queue the handler to be run again at maximum precision.
-        TimerId = NativeMethods.TimeSetEvent(
-            Constants.OneMillisecond,
-            Constants.MaximumPossiblePrecision,
-            TimerCallback,
-            ref UserConext,
-            Constants.EventTypeSingle);
+        Thread.Sleep(1);
 
-        // Handle exceptions first unblocking waiting thread.
-        if (TimerId <= 0)
+        return HasElapsed(startTimestamp, requestedDelay, ct);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ValueTask<bool> SleepOneAsync(long startTimestamp, TimeSpan requestedDelay, TimeSpan tightLoopThreshold, CancellationToken ct)
+    {
+        // Check if the time has elpased already or a cancellation was issued.
+        if (HasElapsed(startTimestamp, requestedDelay, ct))
+            return ValueTask.FromResult(true);
+
+        // Tight loop for sub-millisecond delay precision.
+        if (NeedsTightLoopWait(startTimestamp, requestedDelay, tightLoopThreshold))
         {
-            SignalTimerDone();
-            throw new Win32Exception(Marshal.GetLastWin32Error(), "Unable to create multimedia timer reference.");
+            var spinner = default(SpinWait);
+
+            while (!HasElapsed(startTimestamp, requestedDelay, ct))
+            {
+                if (!spinner.NextSpinWillYield)
+                    spinner.SpinOnce();
+            }
+
+            return ValueTask.FromResult(true);
         }
+
+        //Thread.Sleep(1);
+
+        return ValueTask.FromResult(HasElapsed(startTimestamp, requestedDelay, ct));
     }
 }
 #pragma warning restore CA1810 // Initialize reference type static fields inline

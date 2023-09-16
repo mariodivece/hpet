@@ -5,7 +5,7 @@ namespace Unosquare.Hpet.Playground;
 internal class Program
 {
     // Sample configuration
-    private const DelayPrecision Precision = DelayPrecision.High;
+    private const DelayPrecision Precision = DelayPrecision.Maximum;
     private const double IntervalMillis = 1000d / 75d; // FPS
     private const double RuntimeSeconds = -1; // Set to -1 for no limit
 
@@ -16,7 +16,7 @@ internal class Program
     static async Task Main(string[] args)
     {
         
-        var scheduler = CreatePrecisionTask();
+        var scheduler = CreatePrecisionThread();
         scheduler.Start();
         Console.ReadKey(true);
         scheduler.Dispose();
