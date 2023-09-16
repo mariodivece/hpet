@@ -37,6 +37,10 @@ public sealed class DelayProvider
     public static void Delay(TimeSpan delay, DelayPrecision precision = DelayPrecision.Default, CancellationToken ct = default)
     {
         var startTimestamp = Stopwatch.GetTimestamp();
+
+        if (delay.Ticks <= 0)
+            return;
+
         var tightLoopThreshold = ComputeTightLoopThreshold(precision);
 
         try
@@ -64,7 +68,9 @@ public sealed class DelayProvider
     public static async ValueTask DelayAsync(TimeSpan delay, DelayPrecision precision = DelayPrecision.Default, CancellationToken ct = default)
     {
         var startTimestamp = Stopwatch.GetTimestamp();
-        var tcs = new TaskCompletionSource();
+
+        if (delay.Ticks <= 0)
+            return;
 
         var tightLoopThreshold = ComputeTightLoopThreshold(precision);
 
