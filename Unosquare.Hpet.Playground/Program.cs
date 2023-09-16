@@ -15,8 +15,7 @@ internal class Program
 
     static async Task Main(string[] args)
     {
-        
-        var scheduler = CreatePrecisionThread();
+        var scheduler = CreatePrecisionTimer();
         scheduler.Start();
         Console.ReadKey(true);
         scheduler.Dispose();
