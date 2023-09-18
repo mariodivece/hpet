@@ -804,8 +804,10 @@ public readonly struct TimeExtent :
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool CheckNaN(TimeSpan other) => other == TimeSpan.MinValue;
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsTimeSpanString(ReadOnlySpan<char> s) => s.Contains(":", StringComparison.Ordinal);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryConvertToTimeExtent<TOther>(TOther value, out TimeExtent result)
     {
         result = ConstantNaN;
@@ -865,6 +867,7 @@ public readonly struct TimeExtent :
         return false;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryConvertFromTimeExtent<TOther>(TimeExtent value, out TOther? result)
     {
         result = default;
