@@ -113,7 +113,7 @@ The ```DelayProvider``` is the most important piece of this codebase. It provide
 that allow the user to block until a set amount of time elapses. It provides both, synchronous and
 asynchronous versions so that it can be easily used. Here's how it works:
 
-1. Call the ```timeBeginPeriod``` API with maximum resolution, and 1 millisecond delay.
+1. Call the ```timeBeginPeriod``` API with the maximum supported resolution.
 1. The prior step makes an interrupt occur as quickly as supported by the system so that over-sleeping
 the thread is unlikely.
 1. Finally, the method checks for either of 2 conditions:
