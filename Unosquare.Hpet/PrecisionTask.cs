@@ -17,7 +17,7 @@ public class PrecisionTask : PrecisionLoop
     /// <param name="cycleAction">The action that returns an awaitable task.</param>
     /// <param name="interval">The configured interval.</param>
     /// <param name="precisionOption">The precision strategy.</param>
-    public PrecisionTask(Func<PrecisionCycleEventArgs, CancellationToken, ValueTask> cycleAction, TimeSpan interval, DelayPrecision precisionOption)
+    public PrecisionTask(Func<PrecisionCycleEventArgs, CancellationToken, ValueTask> cycleAction, TimeExtent interval, DelayPrecision precisionOption)
         : base(interval, precisionOption)
     {
         WorkerExitTaskSource = new(this);
@@ -98,7 +98,7 @@ public class PrecisionTask : PrecisionLoop
                 if (eventData.IsStopRequested)
                     break;
 
-                await s.PendingCycleTimeSpan.DelayAsync(PrecisionOption, tokenSource.Token)
+                await s.PendingCycleTime.DelayAsync(PrecisionOption, tokenSource.Token)
                     .ConfigureAwait(false);
             }
             catch (Exception ex)

@@ -80,6 +80,7 @@ to the lowest number provided, regardless of the order in which it was called. I
 a last-in setting. In new versions of Windows, this has been improved and the resolution will
 not be applied at the system-wide level, but also may or may not be limited to the process that
 called it. All ```timeBeginPeriod``` calls must be matched by a ```timeEndPeriod``` call.
+Spoiler alert: this is part of the solution.
 
 * Using any kind of .NET provided [Timer](https://learn.microsoft.com/en-us/dotnet/standard/threading/timers):
 Whether user actions are executed in a single thread (like the WinForms UI thread), a WPF
@@ -99,7 +100,7 @@ meaning, no longer in use. While abusing this call with high resolution settings
 power consumption inefficiencies, the solutions that Microsoft recommends to use as alternatives,
 completely prevent us programmers from increasing the interrupt rate in our applications -- the whole
 point in order to increase precision and reduce CPU usage. As evidenced pretty much in every forum
-I consulted, this API call is still very much in use. Spoiler alert: this is part of the solution.
+I consulted, this API call is still very much in use. Spoiler alert: this is related to the solution.
 
 ## The Solution
 
@@ -112,12 +113,13 @@ The ```DelayProvider``` is the most important piece of this codebase. It provide
 that allow the user to block until a set amount of time elapses. It provides both, synchronous and
 asynchronous versions so that it can be easily used. Here's how it works:
 
-1. Call the ```timeSetEvent``` API as a one-shot event, maximum resolution, and 1 millisecond delay.
-1. The prior step makes an interrupt occur as quickly as supported by the system and calls a method.
-1. The said timer callback method then checks for either of 2 conditions:
+1. Call the ```timeBeginPeriod``` API with maximum resolution, and 1 millisecond delay.
+1. The prior step makes an interrupt occur as quickly as supported by the system so that over-sleeping
+the thread is unlikely.
+1. Finally, the method checks for either of 2 conditions:
    * If the interval is "close enough" to elapsed, do some ```SpinWait.SpinOnce()``` preventing
-     context switching or if context switching is about to occur, just keep a ticght loop.
-   * If the interval can be waited out with more timer one-shot events, just repeat the cycle at step 1.
+     context switching or if context switching is about to occur, just keep a tight loop.
+   * If the interval can be waited out with more sleep events, just repeat the cycle at step 1.
 
 When I say "close enough" what I mean is that I go ahead and ask for the system's capabilities with
 ```timeGetDevCaps```, and do spinning based on the maximum (smallest number) supported resolution.

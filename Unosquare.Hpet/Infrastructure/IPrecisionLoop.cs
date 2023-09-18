@@ -9,7 +9,7 @@ public interface IPrecisionLoop : IDisposable
     /// <summary>
     /// Gets the requested interval at which cycles are to be monotonically executed.
     /// </summary>
-    TimeSpan Interval { get; }
+    TimeExtent Interval { get; }
 
     /// <summary>
     /// Starts the worker loop and begins executing cycles. This method does not block and

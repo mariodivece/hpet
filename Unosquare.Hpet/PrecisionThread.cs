@@ -18,7 +18,7 @@ public sealed class PrecisionThread : PrecisionThreadBase
     /// <param name="cycleAction">The action to perform in each individual cycle.</param>
     /// <param name="interval">The desired interval.</param>
     /// <param name="precisionOption">The precision strategy.</param>
-    public PrecisionThread(Action<PrecisionCycleEventArgs> cycleAction, TimeSpan interval, DelayPrecision precisionOption = DelayPrecision.Default)
+    public PrecisionThread(Action<PrecisionCycleEventArgs> cycleAction, TimeExtent interval, DelayPrecision precisionOption = DelayPrecision.Default)
         : base(interval, precisionOption)
     {
         CycleAction = cycleAction;

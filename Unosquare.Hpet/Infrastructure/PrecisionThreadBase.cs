@@ -19,7 +19,7 @@ public abstract class PrecisionThreadBase : PrecisionLoop
     /// </summary>
     /// <param name="interval">The desired cycle execution interval. Must be a positive value.</param>
     /// <param name="precisionOption">The delay precision strategy to employ.</param>
-    protected PrecisionThreadBase(TimeSpan interval, DelayPrecision precisionOption)
+    protected PrecisionThreadBase(TimeExtent interval, DelayPrecision precisionOption)
         : base(interval, precisionOption)
     {
         WorkerExitTaskSource = new(this);
@@ -101,7 +101,7 @@ public abstract class PrecisionThreadBase : PrecisionLoop
                 if (eventData.IsStopRequested)
                     break;
 
-                s.PendingCycleTimeSpan.Delay(PrecisionOption, tokenSource.Token);
+                s.PendingCycleTime.Delay(PrecisionOption, tokenSource.Token);
             }
             catch (Exception ex)
             {

@@ -34,11 +34,11 @@ public sealed class DelayProvider
     /// <param name="precision">The delay precision option.</param>
     /// <param name="ct">The optional cancellation token.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Delay(TimeSpan delay, DelayPrecision precision = DelayPrecision.Default, CancellationToken ct = default)
+    public static void Delay(TimeExtent delay, DelayPrecision precision = DelayPrecision.Default, CancellationToken ct = default)
     {
         var startTimestamp = Stopwatch.GetTimestamp();
 
-        if (delay.Ticks <= 0)
+        if (delay <= TimeExtent.Zero)
             return;
 
         var tightLoopThreshold = ComputeTightLoopThreshold(precision);
@@ -65,11 +65,11 @@ public sealed class DelayProvider
     /// /// <param name="precision">The delay precision option.</param>
     /// <param name="ct">The optional cancellation token.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static async ValueTask DelayAsync(TimeSpan delay, DelayPrecision precision = DelayPrecision.Default, CancellationToken ct = default)
+    public static async ValueTask DelayAsync(TimeExtent delay, DelayPrecision precision = DelayPrecision.Default, CancellationToken ct = default)
     {
         var startTimestamp = Stopwatch.GetTimestamp();
 
-        if (delay.Ticks <= 0)
+        if (delay <= TimeExtent.Zero)
             return;
 
         var tightLoopThreshold = ComputeTightLoopThreshold(precision);
@@ -89,7 +89,7 @@ public sealed class DelayProvider
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool SleepOne(long startTimestamp, TimeSpan requestedDelay, TimeSpan tightLoopThreshold, CancellationToken ct)
+    private static bool SleepOne(long startTimestamp, TimeExtent requestedDelay, TimeExtent tightLoopThreshold, CancellationToken ct)
     {
         // Check if the time has elpased already or a cancellation was issued.
         if (HasElapsed(startTimestamp, requestedDelay, ct))
@@ -115,7 +115,7 @@ public sealed class DelayProvider
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static async ValueTask<bool> SleepOneAsync(long startTimestamp, TimeSpan requestedDelay, TimeSpan tightLoopThreshold, CancellationToken ct)
+    private static async ValueTask<bool> SleepOneAsync(long startTimestamp, TimeExtent requestedDelay, TimeExtent tightLoopThreshold, CancellationToken ct)
     {
         // Check if the time has elpased already or a cancellation was issued.
         if (HasElapsed(startTimestamp, requestedDelay, ct))
@@ -141,7 +141,7 @@ public sealed class DelayProvider
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static TimeSpan ComputeTightLoopThreshold(DelayPrecision precision)
+    private static TimeExtent ComputeTightLoopThreshold(DelayPrecision precision)
     {
         var tightLoopFactor = precision switch
         {
@@ -152,17 +152,16 @@ public sealed class DelayProvider
             _ => 0d
         };
 
-        return TimeSpan.FromTicks(
-            Convert.ToInt64(TimeSpan.TicksPerMillisecond * MinimumSystemPeriodMillis * tightLoopFactor));
+        return TimeExtent.FromMilliseconds(MinimumSystemPeriodMillis * tightLoopFactor);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool HasElapsed(long startTimestamp, TimeSpan requestedDelay, CancellationToken ct) =>
-        ct.IsCancellationRequested || Stopwatch.GetElapsedTime(startTimestamp).Ticks >= requestedDelay.Ticks;
+    private static bool HasElapsed(long startTimestamp, TimeExtent requestedDelay, CancellationToken ct) =>
+        ct.IsCancellationRequested || TimeExtent.FromElapsed(startTimestamp) >= requestedDelay;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool NeedsTightLoopWait(long startTimestamp, TimeSpan requestedDelay, TimeSpan tightLoopThreshold) =>
-        tightLoopThreshold.Ticks > 0 &&
-        requestedDelay.Ticks - Stopwatch.GetElapsedTime(startTimestamp).Ticks <= tightLoopThreshold.Ticks;
+    private static bool NeedsTightLoopWait(long startTimestamp, TimeExtent requestedDelay, TimeExtent tightLoopThreshold) =>
+        tightLoopThreshold > TimeExtent.Zero &&
+        requestedDelay - TimeExtent.FromElapsed(startTimestamp) <= tightLoopThreshold;
 }
 #pragma warning restore CA1810 // Initialize reference type static fields inline

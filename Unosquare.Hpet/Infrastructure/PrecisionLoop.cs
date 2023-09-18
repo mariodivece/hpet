@@ -21,14 +21,14 @@ public abstract class PrecisionLoop : IPrecisionLoop
     /// </summary>
     /// <param name="interval">The desired interval. The minimum is 1 <see cref="TimeSpan.Ticks"/>.</param>
     /// <param name="precisionOption">The desired precision strategy.</param>
-    protected PrecisionLoop(TimeSpan interval, DelayPrecision precisionOption)
+    protected PrecisionLoop(TimeExtent interval, DelayPrecision precisionOption)
     {
-        Interval = interval.Ticks <= 0 ? TimeSpan.FromTicks(1) : interval;
+        Interval = interval <= TimeExtent.Zero ? TimeSpan.FromTicks(1) : interval;
         PrecisionOption = precisionOption;
     }
 
     /// <inheridoc />
-    public TimeSpan Interval { get; }
+    public TimeExtent Interval { get; }
 
     /// <summary>
     /// Gets the delay precision strategy to employ.
