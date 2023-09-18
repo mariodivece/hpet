@@ -19,6 +19,7 @@ namespace Unosquare.Hpet;
 [StructLayout(LayoutKind.Sequential)]
 public readonly struct TimeExtent :
     INumber<TimeExtent>,
+    IMinMaxValue<TimeExtent>,
 
     IEquatable<TimeSpan>,
     IEquatable<double>,
@@ -47,6 +48,8 @@ public readonly struct TimeExtent :
     private static readonly TimeExtent ConstantZero = new();
     private static readonly TimeExtent ConstantOne = new(TimeSpan.FromSeconds(1));
     private static readonly TimeExtent ConstantNaN = new(TimeSpan.MinValue);
+    private static readonly TimeExtent ConstantMin = new(TimeSpan.FromTicks(long.MinValue + 1));
+    private static readonly TimeExtent ConstantMax = new(TimeSpan.MaxValue);
 
     private readonly bool m_IsNan = false;
     private readonly TimeSpan m_Value = TimeSpan.Zero;
@@ -93,6 +96,13 @@ public readonly struct TimeExtent :
     /// Returns an instance of <see cref="TimeExtent"/> representing NaN (unspecified).
     /// </summary>
     public static TimeExtent NaN => ConstantNaN;
+
+    /// <inheritdoc />
+    public static TimeExtent MaxValue => ConstantMax;
+
+    /// <inheritdoc />
+    public static TimeExtent MinValue => ConstantMin;
+
 
     #endregion
 

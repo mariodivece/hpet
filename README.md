@@ -201,5 +201,25 @@ If you want customized, encapsulated logic implemented in a high precision threa
 you inherit from the ```PrecisionThreadBase``` class and override the various methods avaiable
 for implementation.
 
+### The ```TimeExtent```
+
+I also included a handy value type called ```TimeExtent``` that is similar to the ```TimeSpan```
+type but adds functionality that streamlines coding stuff that has to do with time. It defines
+implicit operators that allow the user to perform time arithmetic more concisely with less code.
+It also implements ```INumber<TimeExtent>```. Here's an example:
+
+```cs
+
+    var extent = TimeExtent.FromMilliseconds(200); // extent holds 0.2 secs.
+    extent = extent++; // extent holds 1.2 secs.
+    
+    var span = TimeSpan.FromSeconds(6);
+    var secs = 2d;
+
+    extent += span; // extents holds 6.2 secs
+    extent = extent / secs; // extent holds 3.1 secs
+    extent = extent % 3d; // extent holds 0.1 secs
+    
+```
 
 That's all. Have fun!
