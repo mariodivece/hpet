@@ -615,7 +615,7 @@ public readonly struct TimeExtent :
     /// </summary>
     /// <returns>The new instance.</returns>
     public static TimeExtent FromSystem() => TimeSpan.FromTicks(Convert.ToInt64(
-        TimeSpan.TicksPerSecond * Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency));
+        TimeSpan.TicksPerSecond * (Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency)));
 
     /// <summary>
     /// Retrieves a <see cref="TimeExtent"/> instance based on a timestamp previously

@@ -17,7 +17,7 @@
 
 	<PropertyGroup>
 		<PackageId>Unosquare.Hpet</PackageId>
-		<Version>1.0.0-alpha.3</Version>
+		<Version>1.0.0-alpha.4</Version>
 		<Authors>mariodivece, unosquare</Authors>
 		<Company>Unosquare</Company>
 		<Product>Unosquare HPET Emulator</Product>
